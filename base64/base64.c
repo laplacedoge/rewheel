@@ -3,7 +3,7 @@
 #define IS_IN_ALPHABET(ch)  ('A' <= (ch) && (ch) <= 'Z' || 'a' <= (ch) && (ch) <= 'z' || '0' <= (ch) && (ch) <= '9' || (ch) == '+' || (ch) == '/')
 #define IS_PADDING_CHAR(ch) ((ch) == '=')
 
-#define BASE64_LEN_CONV_RAW2ENC(len)    (((len / 3) + ((len % 3) ? 1 : 0)) * 4)
+#define BASE64_LEN_CONV_RAW2ENC(len)    ((len + 2) / 3 * 4)
 #define BASE64_LEN_CONV_ENC2RAW(len)    (len / 4 * 3)
 
 static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
