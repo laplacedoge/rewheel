@@ -4,6 +4,7 @@
 #include <string.h>
 #include "kv.h"
 
+/* default hash callback function */
 #define DEF_HASH_CB djb2
 
 static uint32_t djb2(const char *str)
@@ -19,6 +20,15 @@ static uint32_t djb2(const char *str)
     return hash;
 }
 
+/**
+ * @brief create kv map with specified hash callback function.
+ * @note  if 'hash_cb' is NULL, then this function will use default hash
+ *        callback function(defined by marco DEF_HASH_CB) for this kv map.
+ * 
+ * @param map     address of kv map pointer.
+ * @param hash_cb hash callback function pointer.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_create(kv_map_t **map, kv_hash_cb_t hash_cb)
 {
     kv_res_t res;
@@ -55,6 +65,12 @@ exit:
     return res;
 }
 
+/**
+ * @brief destroy the kv map.
+ * 
+ * @param map kv map pointer.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_destroy(kv_map_t *map)
 {
     kv_res_t res;
@@ -77,6 +93,15 @@ exit:
     return res;
 }
 
+/**
+ * @brief get the number of key-value pairs in the kv map.
+ * @note  the value pointed by 'size' won't update if this function doesn't
+ *        return KV_OK.
+ * 
+ * @param map   kv map pointer.
+ * @param size  pointer to variable for storing size.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_size(kv_map_t *map, int *size)
 {
     kv_res_t res;
@@ -94,6 +119,13 @@ exit:
     return res;
 }
 
+/**
+ * @brief check if key is in the kv map or not.
+ * 
+ * @param map kv map pointer.
+ * @param key key string pointer.
+ * @return  return KV_FALSE or KV_TRUE if success, otherwise return other value.
+ */
 kv_res_t kv_contain(kv_map_t *map, const char *key)
 {
     kv_res_t res;
@@ -138,6 +170,17 @@ exit:
     return res;
 }
 
+/**
+ * @brief put a key-value pair in the kv map.
+ * @note  this function will replace the value corresponding to the specified
+ *        key with the specified value if the specified key already exists in
+ *        this kv map.
+ * 
+ * @param map   kv map pointer.
+ * @param key   key string pointer.
+ * @param value value string pointer.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_put(kv_map_t *map, const char *key, const char *value)
 {
     kv_res_t res;
@@ -236,6 +279,14 @@ exit:
     return res;
 }
 
+/**
+ * @brief delete a key-value pair in the kv map.
+ * 
+ * @param map kv map pointer.
+ * @param key key string pointer.
+ * @return  return KV_OK if success, or return KV_ERR_KEY_NOT_FOUND if the 
+ *          specified key isn't found in kv map, otherwise return other value.
+ */
 kv_res_t kv_del(kv_map_t *map, const char *key)
 {
     kv_res_t res;
@@ -288,6 +339,16 @@ exit:
     return res;
 }
 
+/**
+ * @brief get the value string corresponding to the specified key in the kv map.
+ * @note  the value pointed by 'value' won't update if this function doesn't
+ *        return KV_OK.
+ * 
+ * @param map   kv map pointer.
+ * @param key   key string pointer.
+ * @param value pointer to a variable for storing value string pointer.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_get(kv_map_t *map, const char *key, const char **value)
 {
     kv_res_t res;
@@ -329,6 +390,12 @@ exit:
     return res;
 }
 
+/**
+ * @brief clear all key-value pairs in the kv map.
+ * 
+ * @param map kv map pointer.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_clear(kv_map_t *map)
 {
     kv_res_t res;
@@ -369,6 +436,13 @@ exit:
     return res;
 }
 
+/**
+ * @brief iterate all the key-value pairs in the kv map.
+ * 
+ * @param map         kv map pointer.
+ * @param foreach_cb  pointer to iteration callback function.
+ * @return  return KV_OK if success, otherwise return other value.
+ */
 kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb)
 {
     kv_res_t res;
