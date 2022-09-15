@@ -47,7 +47,7 @@ void add_key_value_pairs(kv_map_t *map)
     }
 }
 
-void foreach_cb(const char *key, const char *value)
+void foreach_cb(void *arg, const char *key, const char *value)
 {
     printf("{\"%s\": \"%s\"}\n", key, value);
 }
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     assert(res == KV_OK);
     assert(size == KV_PAIR_NUM);
 
-    res = kv_foreach(map, foreach_cb);
+    res = kv_foreach(map, foreach_cb, NULL);
     assert(res == KV_OK);
 
     res = kv_contain(map, keys[1]);

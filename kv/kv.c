@@ -443,7 +443,7 @@ exit:
  * @param foreach_cb  pointer to iteration callback function.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb)
+kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb, void *arg)
 {
     kv_res_t res;
     kv_bucket_t *curt_bucket;
@@ -455,14 +455,14 @@ kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb)
     }
 
     /* free every chain on the map array */
-    for (int i; i < KV_MAP_ARRAY_SIZE; i++)
+    for (int i = 0; i < KV_MAP_ARRAY_SIZE; i++)
     {
         if (map->array[i] != NULL)
         {
             curt_bucket = map->array[i];
             while (curt_bucket != NULL)
             {
-                foreach_cb(curt_bucket->key, curt_bucket->value);
+                foreach_cb(arg, curt_bucket->key, curt_bucket->value);
                 curt_bucket = curt_bucket->next;
             }
         }

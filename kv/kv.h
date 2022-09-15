@@ -6,7 +6,7 @@
 #define KV_MAP_ARRAY_SIZE   128
 
 typedef uint32_t (* kv_hash_cb_t)(const char *);
-typedef void (* kv_foreach_cb_t)(const char *, const char *);
+typedef void (* kv_foreach_cb_t)(void *, const char *, const char *);
 
 typedef enum kv_res
 {
@@ -61,6 +61,6 @@ kv_res_t kv_get(kv_map_t *map, const char *key, const char ** value);
 
 kv_res_t kv_clear(kv_map_t *map);
 
-kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb);
+kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb, void *arg);
 
 #endif
