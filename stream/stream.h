@@ -13,9 +13,9 @@ typedef struct stream_config
 
 typedef struct stream_status
 {
-    size_t cap;
-    size_t free;
-    size_t used;
+    size_t cap;     // stream capacity
+    size_t free;    // the amount of free space available in the stream
+    size_t used;    // the amount of already used space in the stream
 } stream_status_t;
 
 typedef struct stream_handle
@@ -49,6 +49,8 @@ typedef enum stream_error
 int stream_create(stream_handle_t **handle, stream_config_t *config);
 
 int stream_delete(stream_handle_t *handle);
+
+int stream_status(stream_handle_t *handle, stream_status_t *status);
 
 int stream_write(stream_handle_t *handle, const void *buff, size_t size);
 

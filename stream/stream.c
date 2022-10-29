@@ -94,6 +94,24 @@ int stream_delete(stream_handle_t *handle)
     return STM_OK;
 }
 
+/**
+ * @brief get stream status info.
+ * 
+ * @param handle  stream handle pointer.
+ * @param status  stream status pointer.
+*/
+int stream_status(stream_handle_t *handle, stream_status_t *status)
+{
+    if (handle == NULL || status == NULL)
+    {
+        return STM_ERR_BAD_ARG;
+    }
+
+    memcpy(status, &handle->stat, sizeof(stream_status_t));
+
+    return STM_OK;
+}
+
 int stream_write(stream_handle_t *handle, const void *buff, size_t size)
 {
     uint8_t *first_copy_ptr;
