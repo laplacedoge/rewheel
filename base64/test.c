@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
     test_encoding();
     test_decoding();
 
-    printf("TEST PASS!");
+    printf("ALL TEST PASSED!\n");
 
     return 0;
 }
