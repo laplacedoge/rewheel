@@ -4,25 +4,30 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct stream_config {
+typedef struct stream_config
+{
+    uint32_t is_circbuff_static:1;
+    uint8_t *circbuff;
     size_t circbuff_cap;
 } stream_config_t;
 
-typedef struct stream_status {
+typedef struct stream_status
+{
     size_t cap;
     size_t free;
     size_t used;
 } stream_status_t;
 
-typedef struct stream_handle {
-    uint8_t *circ_buff;
+typedef struct stream_handle
+{
+    uint8_t *circbuff;
     size_t circbuff_size;
     size_t circbuff_cap;
     size_t circbuff_head;
     size_t circbuff_tail;
     stream_config_t conf;
     stream_status_t stat;
-} stream_handle_t;
+}stream_handle_t;
 
 typedef enum stream_error
 {

@@ -10,6 +10,8 @@ static int stream_config_load_default(stream_config_t *config)
         return STM_ERR_BAD_ARG;
     }
 
+    config->is_circbuff_static = 0;
+    config->circbuff = NULL;
     config->circbuff_cap = STM_DEF_CIRCBUFF_CAP;
 
     return STM_OK;
@@ -54,14 +56,26 @@ int stream_create(stream_handle_t **handle, stream_config_t *config)
     hd->stat.free = hd->stat.cap;
     hd->stat.used = 0;
 
-    buff = (uint8_t *)malloc(hd->circbuff_size);
-    if (buff == NULL)
+    /* staticly using circular buffer or dynamicly */
+    if (hd->conf.is_circbuff_static == 1)
     {
-        free(hd);
-        return STM_ERR_NO_MEM;
+        if (hd->conf.circbuff == NULL)
+        {
+            free(hd);
+            return STM_ERR_BAD_CONF;
+        }
+        hd->circbuff = hd->conf.circbuff;
     }
-memset(buff, 0, hd->circbuff_size);
-    hd->circ_buff = buff;
+    else
+    {
+        buff = (uint8_t *)malloc(hd->circbuff_size);
+        if (buff == NULL)
+        {
+            free(hd);
+            return STM_ERR_NO_MEM;
+        }
+        hd->circbuff = buff;
+    }
     *handle = hd;
 
     return STM_OK;
@@ -74,7 +88,7 @@ int stream_delete(stream_handle_t *handle)
         return STM_ERR_BAD_ARG;
     }
 
-    free(handle->circ_buff);
+    free(handle->circbuff);
     free(handle);
 
     return STM_OK;
@@ -98,7 +112,7 @@ int stream_write(stream_handle_t *handle, const void *buff, size_t size)
         return STM_ERR_INSUF_SPACE;
     }
 
-    first_copy_ptr = handle->circ_buff + handle->circbuff_tail;
+    first_copy_ptr = handle->circbuff + handle->circbuff_tail;
 
     /* check if we can write it all at once */
     if (handle->circbuff_cap + 1 - handle->circbuff_tail >= size)
@@ -115,7 +129,7 @@ int stream_write(stream_handle_t *handle, const void *buff, size_t size)
         memcpy(first_copy_ptr, buff, first_copy_size);
 
         /* second copy */
-        memcpy(handle->circ_buff, (uint8_t *)buff + first_copy_size, second_copy_size);
+        memcpy(handle->circbuff, (uint8_t *)buff + first_copy_size, second_copy_size);
 
         handle->circbuff_tail = second_copy_size;
     }
@@ -144,7 +158,7 @@ int stream_read(stream_handle_t *handle, void *buff, size_t size)
         return STM_ERR_INSUF_DATA;
     }
 
-    first_copy_ptr = (uint8_t *)handle->circ_buff + handle->circbuff_head;
+    first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
 
     /* check if we can read it all at once */
     if (handle->circbuff_cap + 1 - handle->circbuff_head >= size)
@@ -161,7 +175,7 @@ int stream_read(stream_handle_t *handle, void *buff, size_t size)
         memcpy(buff, first_copy_ptr, first_copy_size);
 
         /* second copy */
-        memcpy((uint8_t *)buff + first_copy_size, handle->circ_buff, second_copy_size);
+        memcpy((uint8_t *)buff + first_copy_size, handle->circbuff, second_copy_size);
 
         handle->circbuff_head = second_copy_size;
     }
@@ -190,7 +204,7 @@ int stream_peek(stream_handle_t *handle, void *buff, size_t size)
         return STM_ERR_INSUF_DATA;
     }
 
-    first_copy_ptr = (uint8_t *)handle->circ_buff + handle->circbuff_head;
+    first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
 
     /* check if we can read it all at once */
     if (handle->circbuff_cap + 1 - handle->circbuff_head >= size)
@@ -206,7 +220,7 @@ int stream_peek(stream_handle_t *handle, void *buff, size_t size)
         memcpy(buff, first_copy_ptr, first_copy_size);
 
         /* second copy */
-        memcpy((uint8_t *)buff + first_copy_size, handle->circ_buff, second_copy_size);
+        memcpy((uint8_t *)buff + first_copy_size, handle->circbuff, second_copy_size);
     }
 
     return STM_OK;
@@ -230,7 +244,7 @@ int stream_drop(stream_handle_t *handle, size_t size)
         return STM_ERR_INSUF_DATA;
     }
 
-    first_copy_ptr = (uint8_t *)handle->circ_buff + handle->circbuff_head;
+    first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
 
     /* check if we can read it all at once */
     if (handle->circbuff_cap + 1 - handle->circbuff_head >= size)
