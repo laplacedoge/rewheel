@@ -88,7 +88,10 @@ int stream_delete(stream_handle_t *handle)
         return STM_ERR_BAD_ARG;
     }
 
-    free(handle->circbuff);
+    if (handle->conf.is_circbuff_static == 0)
+    {
+        free(handle->circbuff);
+    }
     free(handle);
 
     return STM_OK;
