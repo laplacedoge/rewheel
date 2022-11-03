@@ -3,6 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef STM_PTHREAD_LOCK_ENABLE
+    #define STM_MUTEX_LOCK(handle)      pthread_mutex_lock(&handle->mutex)
+    #define STM_MUTEX_UNLOCK(handle)    pthread_mutex_unlock(&handle->mutex)
+#else
+    #define STM_MUTEX_LOCK(handle)
+    #define STM_MUTEX_UNLOCK(handle)
+#endif
+
 static int stream_config_load_default(stream_config_t *config)
 {
     if (config == NULL)
@@ -21,6 +29,7 @@ int stream_create(stream_handle_t **handle, stream_config_t *config)
 {
     stream_handle_t *hd;
     uint8_t * buff;
+    int ret;
 
     if (handle == NULL)
     {
@@ -41,8 +50,8 @@ int stream_create(stream_handle_t **handle, stream_config_t *config)
     {
         if (config->circbuff_cap == 0)
         {
-            free(hd);
-            return STM_ERR_BAD_CONF;
+            ret = STM_ERR_BAD_CONF;
+            goto err_exit;
         }
         memcpy(&hd->conf, config, sizeof(stream_config_t));
     }
@@ -56,13 +65,22 @@ int stream_create(stream_handle_t **handle, stream_config_t *config)
     hd->stat.free = hd->stat.cap;
     hd->stat.used = 0;
 
+#ifdef STM_PTHREAD_LOCK_ENABLE
+    ret = pthread_mutex_init(&hd->mutex, NULL);
+    if (ret != 0)
+    {
+        ret = STM_ERR_BAD_MUTEX;
+        goto err_exit;
+    }
+#endif
+
     /* staticly using circular buffer or dynamicly */
     if (hd->conf.is_circbuff_static == 1)
     {
         if (hd->conf.circbuff == NULL)
         {
-            free(hd);
-            return STM_ERR_BAD_CONF;
+            ret = STM_ERR_BAD_CONF;
+            goto err_exit;
         }
         hd->circbuff = hd->conf.circbuff;
     }
@@ -71,22 +89,36 @@ int stream_create(stream_handle_t **handle, stream_config_t *config)
         buff = (uint8_t *)malloc(hd->circbuff_size);
         if (buff == NULL)
         {
-            free(hd);
-            return STM_ERR_NO_MEM;
+            ret = STM_ERR_NO_MEM;
+            goto err_exit;
         }
         hd->circbuff = buff;
     }
     *handle = hd;
 
     return STM_OK;
+
+err_exit:
+    free(hd);
+    return ret;
 }
 
 int stream_delete(stream_handle_t *handle)
 {
+    int ret;
+
     if (handle == NULL)
     {
         return STM_ERR_BAD_ARG;
     }
+
+#ifdef STM_PTHREAD_LOCK_ENABLE
+    ret = pthread_mutex_destroy(&handle->mutex);
+    if (ret != 0)
+    {
+        return STM_ERR_BAD_MUTEX;
+    }
+#endif
 
     if (handle->conf.is_circbuff_static == 0)
     {
@@ -110,7 +142,11 @@ int stream_status(stream_handle_t *handle, stream_status_t *status)
         return STM_ERR_BAD_ARG;
     }
 
+    STM_MUTEX_LOCK(handle);
+
     memcpy(status, &handle->stat, sizeof(stream_status_t));
+
+    STM_MUTEX_UNLOCK(handle);
 
     return STM_OK;
 }
@@ -132,6 +168,8 @@ int stream_write(stream_handle_t *handle, const void *buff, size_t size)
     {
         return STM_ERR_INSUF_SPACE;
     }
+
+    STM_MUTEX_LOCK(handle);
 
     first_copy_ptr = handle->circbuff + handle->circbuff_tail;
 
@@ -158,6 +196,8 @@ int stream_write(stream_handle_t *handle, const void *buff, size_t size)
     handle->stat.used += size;
     handle->stat.free = handle->stat.cap - handle->stat.used;
 
+    STM_MUTEX_UNLOCK(handle);
+
     return STM_OK;
 }
 
@@ -178,6 +218,8 @@ int stream_read(stream_handle_t *handle, void *buff, size_t size)
     {
         return STM_ERR_INSUF_DATA;
     }
+
+    STM_MUTEX_LOCK(handle);
 
     first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
 
@@ -204,6 +246,8 @@ int stream_read(stream_handle_t *handle, void *buff, size_t size)
     handle->stat.used -= size;
     handle->stat.free = handle->stat.cap - handle->stat.used;
 
+    STM_MUTEX_UNLOCK(handle);
+
     return STM_OK;
 }
 
@@ -225,6 +269,8 @@ int stream_peek(stream_handle_t *handle, void *buff, size_t size)
         return STM_ERR_INSUF_DATA;
     }
 
+    STM_MUTEX_LOCK(handle);
+
     first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
 
     /* check if we can read it all at once */
@@ -243,6 +289,8 @@ int stream_peek(stream_handle_t *handle, void *buff, size_t size)
         /* second copy */
         memcpy((uint8_t *)buff + first_copy_size, handle->circbuff, second_copy_size);
     }
+
+    STM_MUTEX_UNLOCK(handle);
 
     return STM_OK;
 }
@@ -265,6 +313,8 @@ int stream_drop(stream_handle_t *handle, size_t size)
         return STM_ERR_INSUF_DATA;
     }
 
+    STM_MUTEX_LOCK(handle);
+
     first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
 
     /* check if we can read it all at once */
@@ -279,6 +329,8 @@ int stream_drop(stream_handle_t *handle, size_t size)
 
     handle->stat.used -= size;
     handle->stat.free = handle->stat.cap - handle->stat.used;
+
+    STM_MUTEX_UNLOCK(handle);
 
     return STM_OK;
 }

@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef STM_PTHREAD_LOCK_ENABLE
+#include <pthread.h>
+#endif
+
 typedef struct stream_config
 {
     uint32_t is_circbuff_static:1;
@@ -27,6 +31,9 @@ typedef struct stream_handle
     size_t circbuff_tail;
     stream_config_t conf;
     stream_status_t stat;
+#ifdef STM_PTHREAD_LOCK_ENABLE
+    pthread_mutex_t mutex;
+#endif
 }stream_handle_t;
 
 typedef enum stream_error
@@ -38,6 +45,7 @@ typedef enum stream_error
     STM_ERR_BAD_CONF,
     STM_ERR_INSUF_SPACE,
     STM_ERR_INSUF_DATA,
+    STM_ERR_BAD_MUTEX,
 } stream_error_t;
 
 #define STM_DEF_CIRCBUFF_CAP    1024
