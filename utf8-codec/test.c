@@ -127,11 +127,64 @@ void test_decode_partial_invalid_encoded_data(void)
     printf("<<< PASS\n");
 }
 
+void test_flag_conflict(void)
+{
+    uint16_t code_points[1024];
+    size_t decoded_num;
+    size_t last_pos;
+    int ret;
+
+    printf("\n>>> TEST: flag conflict\n");
+
+    ret = utf8_decode(code_points,
+                      encoded_data_partial_invalid_triple_mix,
+                      sizeof(encoded_data_partial_invalid_triple_mix) - 1,
+                      &decoded_num, NULL, UTF8DEC_IGNORE_INVALID_DATA |
+                                          UTF8DEC_REPLACE_UNKNOWN_CHAR);
+    assert(ret == UTF8DEC_ERR_FLAG_CONFLICT);
+
+    printf("<<< PASS\n");
+}
+
+static const uint16_t decoded_data_partial_invalid_triple_mix_with_unknown_char_replacement[] =
+{
+    0x0009, 0x003C, 0x0070, 0x003E, 0x662F, 0xFFFD, 0x7684, 0xFF0C,
+    0x0066, 0x0069, 0x0072, 0x0073, 0x0074, 0x0020, 0x006C, 0x0065,
+    0x0074, 0xFFFD, 0x0027, 0xFFFD, 0x0073, 0x0020, 0x8BBE, 0x7F6E,
+    0x0020, 0x03B2, 0x0020, 0x0074, 0x006F, 0x0020, 0x0031, 0x002E,
+    0x0039, 0x002C, 0x0020, 0x7136, 0x540E, 0xFFFD, 0xFFFD, 0x9759,
+    0x89C2, 0x5176, 0x53D8, 0xFF01, 0x003C, 0x002F, 0x0070, 0x003E
+};
+
+void test_replace_unknown_char(void)
+{
+    uint16_t code_points[1024];
+    size_t decoded_num;
+    size_t last_pos;
+    int ret;
+
+    printf("\n>>> TEST: replace unknown character\n");
+
+    ret = utf8_decode(code_points,
+                      encoded_data_partial_invalid_triple_mix,
+                      sizeof(encoded_data_partial_invalid_triple_mix) - 1,
+                      &decoded_num, NULL, UTF8DEC_REPLACE_UNKNOWN_CHAR);
+    assert(ret == UTF8DEC_OK);
+    assert(decoded_num == 48);
+    assert(memcmp(code_points, decoded_data_partial_invalid_triple_mix_with_unknown_char_replacement, 48) == 0);
+
+    printf("<<< PASS\n");
+}
+
 int main(int argc, char **argv)
 {
     test_decode_right_encoded_data();
 
     test_decode_partial_invalid_encoded_data();
+
+    test_flag_conflict();
+
+    test_replace_unknown_char();
 
     return 0;
 }
