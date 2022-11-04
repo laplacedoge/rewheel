@@ -5,7 +5,7 @@
 int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, size_t *last_pos, int flags)
 {
     int ret;
-    int ignore_dirty_data;
+    int ignore_invalid_data;
     size_t rest;
     uint16_t code_point;
     uint16_t *buff_offs;
@@ -29,7 +29,7 @@ int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, 
         return UTF8DEC_OK;
     }
 
-    ignore_dirty_data = flags & UTF8DEC_IGNORE_DIRTY_DATA;
+    ignore_invalid_data = flags & UTF8DEC_IGNORE_INVALID_DATA;
 
     rest = size;
     buff_offs = (uint16_t *)buff;
@@ -52,7 +52,7 @@ int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, 
                     code_point = ((data_offs[0] & 0x1F) << 6) | (data_offs[1] & 0x3F);
                     if (code_point < 0x0080)
                     {
-                        ret = UTF8DEC_ERR_BAD_CP_VAL;
+                        ret = UTF8DEC_ERR_INVALID_CODEPOINT;
                         goto exit;
                     }
 
@@ -70,7 +70,7 @@ int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, 
                             code_point = ((data_offs[0] & 0x0F) << 12) | ((data_offs[1] & 0x3F) << 6) | (data_offs[2] & 0x3F);
                             if (code_point < 0x0800)
                             {
-                                ret = UTF8DEC_ERR_BAD_CP_VAL;
+                                ret = UTF8DEC_ERR_INVALID_CODEPOINT;
                                 goto exit;
                             }
 
@@ -81,28 +81,28 @@ int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, 
                         }
                         else
                         {
-                            if (ignore_dirty_data)
+                            if (ignore_invalid_data)
                             {
                                 rest -= 1;
                                 data_offs += 1;
                             }
                             else
                             {
-                                ret = UTF8DEC_ERR_DIRTY_DATA;
+                                ret = UTF8DEC_ERR_INVALID_DATA;
                                 goto exit;
                             }
                         }
                     }
                     else
                     {
-                        ret = UTF8DEC_ERR_DIRTY_DATA;
+                        ret = UTF8DEC_ERR_INVALID_DATA;
                         goto exit;
                     }
                 }
             }
             else
             {
-                ret = UTF8DEC_ERR_DIRTY_DATA;
+                ret = UTF8DEC_ERR_INVALID_DATA;
                 goto exit;
             }
         }
