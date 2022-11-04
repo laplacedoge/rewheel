@@ -2,10 +2,13 @@
 
 #include "utf8_codec.h"
 
+#define REPLACEMENT_CHAR    0xFFFD
+
 int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, size_t *last_pos, int flags)
 {
     int ret;
     int ignore_invalid_data;
+    int replace_unknown_char;
     size_t rest;
     uint16_t code_point;
     uint16_t *buff_offs;
@@ -29,7 +32,15 @@ int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, 
         return UTF8DEC_OK;
     }
 
+    /* get the value of flags */
     ignore_invalid_data = flags & UTF8DEC_IGNORE_INVALID_DATA;
+    replace_unknown_char = flags & UTF8DEC_REPLACE_UNKNOWN_CHAR;
+
+    /* flage conflict checking */
+    if (ignore_invalid_data && replace_unknown_char)
+    {
+        return UTF8DEC_ERR_FLAG_CONFLICT;
+    }
 
     rest = size;
     buff_offs = (uint16_t *)buff;
@@ -88,22 +99,52 @@ int utf8_decode(void *buff, const void *data, size_t size, size_t *decoded_num, 
                             }
                             else
                             {
-                                ret = UTF8DEC_ERR_INVALID_DATA;
-                                goto exit;
+                                if (replace_unknown_char)
+                                {
+                                    *buff_offs = REPLACEMENT_CHAR;
+                                    rest -= 1;
+                                    buff_offs++;
+                                    data_offs += 1;
+                                }
+                                else
+                                {
+                                    ret = UTF8DEC_ERR_INVALID_DATA;
+                                    goto exit;
+                                }
                             }
                         }
                     }
                     else
                     {
-                        ret = UTF8DEC_ERR_INVALID_DATA;
-                        goto exit;
+                        if (replace_unknown_char)
+                        {
+                            *buff_offs = REPLACEMENT_CHAR;
+                            rest -= 1;
+                            buff_offs++;
+                            data_offs += 1;
+                        }
+                        else
+                        {
+                            ret = UTF8DEC_ERR_INVALID_DATA;
+                            goto exit;
+                        }
                     }
                 }
             }
             else
             {
-                ret = UTF8DEC_ERR_INVALID_DATA;
-                goto exit;
+                if (replace_unknown_char)
+                {
+                    *buff_offs = REPLACEMENT_CHAR;
+                    rest -= 1;
+                    buff_offs++;
+                    data_offs += 1;
+                }
+                else
+                {
+                    ret = UTF8DEC_ERR_INVALID_DATA;
+                    goto exit;
+                }
             }
         }
     }
