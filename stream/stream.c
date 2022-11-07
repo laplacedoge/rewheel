@@ -335,3 +335,27 @@ int stream_drop(stream_handle_t *handle, size_t size)
     return STM_OK;
 }
 
+/**
+ * @brief discard all the data in the stream.
+ * 
+ * @param handle  stream handle pointer.
+*/
+int stream_discard(stream_handle_t *handle)
+{
+    if (handle == NULL)
+    {
+        return STM_ERR_BAD_ARG;
+    }
+
+    STM_MUTEX_LOCK(handle);
+
+    handle->circbuff_head = 0;
+    handle->circbuff_tail = 0;
+
+    handle->stat.used = 0;
+    handle->stat.free = handle->stat.cap;
+
+    STM_MUTEX_UNLOCK(handle);
+
+    return STM_OK;
+}

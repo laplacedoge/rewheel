@@ -68,4 +68,6 @@ int stream_peek(stream_handle_t *handle, void *buff, size_t size);
 
 int stream_drop(stream_handle_t *handle, size_t size);
 
+int stream_discard(stream_handle_t *handle);
+
 #endif
