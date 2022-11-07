@@ -3,12 +3,21 @@
 
 #include "base64.h"
 
-#define IS_IN_ALPHABET(ch)          ('A' <= (ch) && (ch) <= 'Z' || \
+#define BASE64_PADDING_DIGIT        ('=')
+
+/* check if it's a base64 character. */
+#define IS_BASE64_DIGIT(ch)         ('A' <= (ch) && (ch) <= 'Z' || \
                                      'a' <= (ch) && (ch) <= 'z' || \
                                      '0' <= (ch) && (ch) <= '9' || \
                                      (ch) == '+' || (ch) == '/')
 
-#define IS_PADDING_CHAR(ch)         ((ch) == '=')
+/* check if it's a url-safe base64 character. */
+#define IS_BASE64_URLSAFE_DIGIT(ch) ('A' <= (ch) && (ch) <= 'Z' || \
+                                     'a' <= (ch) && (ch) <= 'z' || \
+                                     '0' <= (ch) && (ch) <= '9' || \
+                                     (ch) == '-' || (ch) == '_')
+
+#define IS_BASE64_PADDING_DIGIT(ch) ((ch) == BASE64_PADDING_DIGIT)
 
 /* covert the size of the raw data to the size of the encoded data */
 #define CONV_SIZE_RAW2ENC(size)     ((size + 2) / 3 * 4)
@@ -17,23 +26,38 @@
 #define CONV_SIZE_ENC2RAW(size, np) ((size / 4 - 1) * 3 + ((np == 0) ? \
                                      3 : (3 - np)))
 
+typedef enum base64_type
+{
+    BASE64_STANDARD = 1,
+    BASE64_URLSAFE  = 2,
+} base64_type_t;
+
 /* a table for converting the index value to the ASCII value of
    the specified base64 digit character. */
-static const char alphabet[] =
+static const char base64_digit_tab[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/* the offset value of the 'reverse_tab'. */
-#define REVERSE_TAB_OFFSET          43
+/* same table as above but used for url-safe base64. */
+static const char base64_urlsafe_digit_tab[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+/* the offset of the 'base64_rev_tab'. */
+#define BASE64_REV_TAB_OFFS         43
 
 /* a table for converting the ASCII value to the index value of
    the specified base64 digit character, note that this table
    is offset from the original ASCII table. */
-static const uint8_t reverse_tab[] =
+static const uint8_t base64_rev_tab[] =
 {
     /* digit '+' */
     0x3E,
 
-    0x00, 0x00, 0x00,
+    0x00,
+
+    /* digit '-', used for url-safe base64 */
+    0x3E, 
+
+    0x00,
 
     /* digit '/' */
     0x3F,
@@ -50,7 +74,12 @@ static const uint8_t reverse_tab[] =
     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
     0x18, 0x19,
 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00,
+
+    /* digit '_', used for url-safe base64 */
+    0x3F,
+
+    0x00,
 
     /* digit 'a'-'z' */
     0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
@@ -61,7 +90,7 @@ static const uint8_t reverse_tab[] =
 
 /* a macro function for converting the ASCII value to the index value of
    the specified base64 digit character. */
-#define reverse(ch) (reverse_tab[(ch) - REVERSE_TAB_OFFSET])
+#define base64_reverse_digit(ch)    (base64_rev_tab[(ch) - BASE64_REV_TAB_OFFS])
 
 /* store the parameter of current error, the meaning of this value varies
    depending on the type of the error. */
@@ -74,14 +103,16 @@ uint32_t base64_error_param(void)
 }
 
 /**
- * @brief encode raw data using base64.
+ * @brief encode raw data by using specified digit table.
  * 
- * @param buff  encoded data buffer pointer.
- * @param data  raw data buffer pointer.
- * @param len   size of raw data(in bytes).
+ * @param buff      encoded data buffer pointer.
+ * @param data      raw data buffer pointer.
+ * @param size      size of raw data(in bytes).
+ * @param digit_tab digit table pointer.
  * @return      the size of the encoded data.
  */
-int base64_encode(void *buff, const void *data, int size)
+static int base64_encode_by_digit_tab(void *buff, const void *data, int size,
+                                      const char *digit_tab)
 {
     /* raw data offset pointer. */
     const uint8_t *data_offs;
@@ -99,16 +130,16 @@ int base64_encode(void *buff, const void *data, int size)
     buff_offs = (uint32_t *)buff;
     rest_size = size;
 
-    while (rest_size)
+    while (rest_size > 0)
     {
         if (rest_size >= 3)
         {
-            digit_buff[0] = alphabet[data_offs[0] >> 2];
-            digit_buff[1] = alphabet[((data_offs[0] & 0x03) << 4) |
-                                     ((data_offs[1] & 0xF0) >> 4)];
-            digit_buff[2] = alphabet[((data_offs[1] & 0x0F) << 2) |
-                                     ((data_offs[2] & 0xC0) >> 6)];
-            digit_buff[3] = alphabet[data_offs[2] & 0x3F];
+            digit_buff[0] = digit_tab[data_offs[0] >> 2];
+            digit_buff[1] = digit_tab[((data_offs[0] & 0x03) << 4) |
+                                      ((data_offs[1] & 0xF0) >> 4)];
+            digit_buff[2] = digit_tab[((data_offs[1] & 0x0F) << 2) |
+                                      ((data_offs[2] & 0xC0) >> 6)];
+            digit_buff[3] = digit_tab[data_offs[2] & 0x3F];
             rest_size -= 3;
             data_offs += 3;
         }
@@ -117,21 +148,21 @@ int base64_encode(void *buff, const void *data, int size)
             switch (rest_size % 3)
             {
             case 2:
-                digit_buff[0] = alphabet[data_offs[0] >> 2];
-                digit_buff[1] = alphabet[((data_offs[0] & 0x03) << 4) |
-                                         ((data_offs[1] & 0xF0) >> 4)];
-                digit_buff[2] = alphabet[((data_offs[1] & 0x0F) << 2) |
-                                         ((data_offs[2] & 0xC0) >> 6)];
-                digit_buff[3] = '=';
+                digit_buff[0] = digit_tab[data_offs[0] >> 2];
+                digit_buff[1] = digit_tab[((data_offs[0] & 0x03) << 4) |
+                                          ((data_offs[1] & 0xF0) >> 4)];
+                digit_buff[2] = digit_tab[((data_offs[1] & 0x0F) << 2) |
+                                          ((data_offs[2] & 0xC0) >> 6)];
+                digit_buff[3] = BASE64_PADDING_DIGIT;
                 rest_size -= 2;
                 data_offs += 2;
                 break;
             case 1:
-                digit_buff[0] = alphabet[data_offs[0] >> 2];
-                digit_buff[1] = alphabet[((data_offs[0] & 0x03) << 4) |
-                                         ((data_offs[1] & 0xF0) >> 4)];
-                digit_buff[2] = '=';
-                digit_buff[3] = '=';
+                digit_buff[0] = digit_tab[data_offs[0] >> 2];
+                digit_buff[1] = digit_tab[((data_offs[0] & 0x03) << 4) |
+                                          ((data_offs[1] & 0xF0) >> 4)];
+                digit_buff[2] = BASE64_PADDING_DIGIT;
+                digit_buff[3] = BASE64_PADDING_DIGIT;
                 rest_size -= 1;
                 data_offs += 1;
                 break;
@@ -146,14 +177,63 @@ int base64_encode(void *buff, const void *data, int size)
 }
 
 /**
+ * @brief encode raw data by using base64.
+ * 
+ * @param buff  encoded data buffer pointer.
+ * @param data  raw data buffer pointer.
+ * @param size  size of raw data(in bytes).
+ * @return      the size of the encoded data.
+ */
+int base64_encode(void *buff, const void *data, int size)
+{
+    if (buff == NULL || data == NULL)
+    {
+        return BASE64_ERR_BAD_ARG;
+    }
+
+    if (size == 0)
+    {
+        return 0;
+    }
+
+    return base64_encode_by_digit_tab(buff, data, size, base64_digit_tab);
+}
+
+/**
+ * @brief encode raw data by using url-safe base64.
+ * 
+ * @param buff  encoded data buffer pointer.
+ * @param data  raw data buffer pointer.
+ * @param size  size of raw data(in bytes).
+ * @return      the size of the encoded data.
+ */
+int base64_urlsafe_encode(void *buff, const void *data, int size)
+{
+    if (buff == NULL || data == NULL)
+    {
+        return BASE64_ERR_BAD_ARG;
+    }
+
+    if (size == 0)
+    {
+        return 0;
+    }
+
+    return base64_encode_by_digit_tab(buff, data, size, base64_urlsafe_digit_tab);
+}
+
+/**
  * @brief validate the specified encoded data.
  * 
- * @param data  encoded data buffer pointer.
- * @param size  size of the encoded data.
+ * @param data        encoded data buffer pointer.
+ * @param size        size of the encoded data.
+ * @param base64_type base64 type.
  * @return      see the definition of base64_err_t.
  */
-static int validate_encoded_data(const void *data, int size)
+static int validate_encoded_data(const void *data, int size, int base64_type)
 {
+    bool result;
+
     /* is previous character a data character(non-padding character). */
     bool is_prevchar_data;
 
@@ -189,10 +269,18 @@ static int validate_encoded_data(const void *data, int size)
     rest_size = size;
     data_offs = (const char *)data;
 
-    if (!IS_IN_ALPHABET(*data_offs))
+    if (base64_type == BASE64_STANDARD)
+    {
+        result = !IS_BASE64_DIGIT(*data_offs);
+    }
+    else if (base64_type == BASE64_URLSAFE)
+    {
+        result = !IS_BASE64_URLSAFE_DIGIT(*data_offs);
+    }
+    if (result)
     {
         error_param = 0;
-        if (IS_PADDING_CHAR(*data_offs))
+        if (IS_BASE64_PADDING_DIGIT(*data_offs))
         {
             return BASE64_ERR_INVALID_ENC_PADDING;
         }
@@ -206,38 +294,77 @@ static int validate_encoded_data(const void *data, int size)
     data_offs++;
     rest_size--;
 
-    while (rest_size)
+    if (base64_type == BASE64_STANDARD)
     {
-        if (IS_IN_ALPHABET(*data_offs))
+        while (rest_size > 0)
         {
-            num_padding = 0;
-            if (!is_prevchar_data)
+            if (IS_BASE64_DIGIT(*data_offs))
             {
-                is_prevchar_data = true;
-                num_flipping++;
+                num_padding = 0;
+                if (!is_prevchar_data)
+                {
+                    is_prevchar_data = true;
+                    num_flipping++;
+                }
             }
-        }
-        else if (IS_PADDING_CHAR(*data_offs))
-        {
-            if (first_padding_idx == 0)
+            else if (IS_BASE64_PADDING_DIGIT(*data_offs))
             {
-                first_padding_idx = data_offs - (char *)data;
+                if (first_padding_idx == 0)
+                {
+                    first_padding_idx = data_offs - (char *)data;
+                }
+                num_padding++;
+                if (is_prevchar_data)
+                {
+                    is_prevchar_data = false;
+                    num_flipping++;
+                }
             }
-            num_padding++;
-            if (is_prevchar_data)
+            else
             {
-                is_prevchar_data = false;
-                num_flipping++;
+                error_param = data_offs - (char *)data;
+                return BASE64_ERR_INVALID_ENC_CHAR;
             }
-        }
-        else
-        {
-            error_param = data_offs - (char *)data;
-            return BASE64_ERR_INVALID_ENC_CHAR;
-        }
 
-        data_offs++;
-        rest_size--;
+            data_offs++;
+            rest_size--;
+        }
+    }
+    else if (base64_type == BASE64_URLSAFE)
+    {
+        while (rest_size > 0)
+        {
+            if (IS_BASE64_URLSAFE_DIGIT(*data_offs))
+            {
+                num_padding = 0;
+                if (!is_prevchar_data)
+                {
+                    is_prevchar_data = true;
+                    num_flipping++;
+                }
+            }
+            else if (IS_BASE64_PADDING_DIGIT(*data_offs))
+            {
+                if (first_padding_idx == 0)
+                {
+                    first_padding_idx = data_offs - (char *)data;
+                }
+                num_padding++;
+                if (is_prevchar_data)
+                {
+                    is_prevchar_data = false;
+                    num_flipping++;
+                }
+            }
+            else
+            {
+                error_param = data_offs - (char *)data;
+                return BASE64_ERR_INVALID_ENC_CHAR;
+            }
+
+            data_offs++;
+            rest_size--;
+        }
     }
 
     if (num_flipping > 1)
@@ -258,16 +385,18 @@ static int validate_encoded_data(const void *data, int size)
 }
 
 /**
- * @brief decode base64-encoded data.
+ * @brief decode base64-encoded data by specified base64 type.
  * 
- * @param buff  decoded data buffer pointer.
- * @param data  encoded data buffer pointer.
- * @param size  size of encoded data(in bytes).
+ * @param buff        decoded data buffer pointer.
+ * @param data        encoded data buffer pointer.
+ * @param size        size of encoded data(in bytes).
+ * @param base64_type base64 type.
  * @return      return negative number if encountering error when decoding,
  *              otherwise the returned value represents the size of the
  *              decoded data.
  */
-int base64_decode(void *buff, const void *data, int size)
+static int base64_decode_by_base64_type(void *buff, const void *data, int size,
+                                        int base64_type)
 {
     int ret;
 
@@ -294,7 +423,7 @@ int base64_decode(void *buff, const void *data, int size)
         return 0;
     }
 
-    ret = validate_encoded_data(data, size);
+    ret = validate_encoded_data(data, size, base64_type);
     if (ret != BASE64_OK)
     {
         return ret;
@@ -313,12 +442,12 @@ int base64_decode(void *buff, const void *data, int size)
         rest_size = size - 4;
     }
 
-    while(rest_size)
+    while(rest_size > 0)
     {
-        idx_buff[0] = reverse(data_offs[0]);
-        idx_buff[1] = reverse(data_offs[1]);
-        idx_buff[2] = reverse(data_offs[2]);
-        idx_buff[3] = reverse(data_offs[3]);
+        idx_buff[0] = base64_reverse_digit(data_offs[0]);
+        idx_buff[1] = base64_reverse_digit(data_offs[1]);
+        idx_buff[2] = base64_reverse_digit(data_offs[2]);
+        idx_buff[3] = base64_reverse_digit(data_offs[3]);
         raw_buff[0] = (idx_buff[0] << 2) | ((idx_buff[1] & 0x30) >> 4);
         raw_buff[1] = ((idx_buff[1] & 0x0F) << 4) | ((idx_buff[2] & 0x3C) >> 2);
         raw_buff[2] = ((idx_buff[2] & 0x03) << 6) | idx_buff[3];
@@ -336,15 +465,15 @@ int base64_decode(void *buff, const void *data, int size)
     switch (num_padding)
     {
     case 2:
-        idx_buff[0] = reverse(data_offs[0]);
-        idx_buff[1] = reverse(data_offs[1]);
+        idx_buff[0] = base64_reverse_digit(data_offs[0]);
+        idx_buff[1] = base64_reverse_digit(data_offs[1]);
         raw_buff[0] = (idx_buff[0] << 2) | ((idx_buff[1] & 0x30) >> 4);
         memcpy(buff_offs, &raw_buff, 1);
         break;
     case 1:
-        idx_buff[0] = reverse(data_offs[0]);
-        idx_buff[1] = reverse(data_offs[1]);
-        idx_buff[2] = reverse(data_offs[2]);
+        idx_buff[0] = base64_reverse_digit(data_offs[0]);
+        idx_buff[1] = base64_reverse_digit(data_offs[1]);
+        idx_buff[2] = base64_reverse_digit(data_offs[2]);
         raw_buff[0] = (idx_buff[0] << 2) | ((idx_buff[1] & 0x30) >> 4);
         raw_buff[1] = ((idx_buff[1] & 0x0F) << 4) | ((idx_buff[2] & 0x3C) >> 2);
         memcpy(buff_offs, &raw_buff, 2);
@@ -352,4 +481,54 @@ int base64_decode(void *buff, const void *data, int size)
     }
 
     return CONV_SIZE_ENC2RAW(size, num_padding);
+}
+
+/**
+ * @brief decode base64 encoded data.
+ * 
+ * @param buff  decoded data buffer pointer.
+ * @param data  encoded data buffer pointer.
+ * @param size  size of encoded data(in bytes).
+ * @return      return negative number if encountering error when decoding,
+ *              otherwise the returned value represents the size of the
+ *              decoded data.
+ */
+int base64_decode(void *buff, const void *data, int size)
+{
+    if (buff == NULL || data == NULL)
+    {
+        return BASE64_ERR_BAD_ARG;
+    }
+
+    if (size == 0)
+    {
+        return 0;
+    }
+
+    return base64_decode_by_base64_type(buff, data, size, BASE64_STANDARD);
+}
+
+/**
+ * @brief decode url-safe base64 encoded data.
+ * 
+ * @param buff  decoded data buffer pointer.
+ * @param data  encoded data buffer pointer.
+ * @param size  size of encoded data(in bytes).
+ * @return      return negative number if encountering error when decoding,
+ *              otherwise the returned value represents the size of the
+ *              decoded data.
+ */
+int base64_urlsafe_decode(void *buff, const void *data, int size)
+{
+    if (buff == NULL || data == NULL)
+    {
+        return BASE64_ERR_BAD_ARG;
+    }
+
+    if (size == 0)
+    {
+        return 0;
+    }
+
+    return base64_decode_by_base64_type(buff, data, size, BASE64_URLSAFE);
 }
