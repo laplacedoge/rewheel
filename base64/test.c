@@ -141,26 +141,26 @@ void test_decoding(void)
 
     ret = base64_decode(&buff, &base64_enc_invalid_len,
                         strlen(base64_enc_invalid_len));
-    assert(ret == BASE64_ERR_INVALID_ENC_LEN);
+    assert(ret == BASE64_ERR_BAD_ENC_SIZE);
 
     ret = base64_decode(&buff, &base64_enc_invalid_char_in_data,
                         strlen(base64_enc_invalid_char_in_data));
-    assert(ret == BASE64_ERR_INVALID_ENC_CHAR);
+    assert(ret == BASE64_ERR_BAD_ENC_CHAR);
     assert(base64_error_param() == 14);
 
     ret = base64_decode(&buff, &base64_enc_invalid_char_in_padding,
                         strlen(base64_enc_invalid_char_in_padding));
-    assert(ret == BASE64_ERR_INVALID_ENC_CHAR);
+    assert(ret == BASE64_ERR_BAD_ENC_CHAR);
     assert(base64_error_param() == 83);
 
     ret = base64_decode(&buff, &base64_enc_too_many_padding_char,
                         strlen(base64_enc_too_many_padding_char));
-    assert(ret == BASE64_ERR_INVALID_ENC_PADDING);
+    assert(ret == BASE64_ERR_BAD_ENC_PADDING);
     assert(base64_error_param() == 82);
 
     ret = base64_decode(&buff, &base64_enc_invalid_padding_char_position,
                         strlen(base64_enc_invalid_padding_char_position));
-    assert(ret == BASE64_ERR_INVALID_ENC_PADDING);
+    assert(ret == BASE64_ERR_BAD_ENC_PADDING);
     assert(base64_error_param() == 19);
 
     printf("<<< PASS\n");

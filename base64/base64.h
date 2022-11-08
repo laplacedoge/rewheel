@@ -44,13 +44,13 @@ typedef enum base64_err
     BASE64_ERR_BAD_ARG              = -1,
 
     /* encounter invalid encoding character. */
-    BASE64_ERR_INVALID_ENC_CHAR     = -2,
+    BASE64_ERR_BAD_ENC_CHAR         = -2,
 
-    /* the length of the encoded data is invalid. */
-    BASE64_ERR_INVALID_ENC_LEN      = -3,
+    /* the size of the encoded data is invalid. */
+    BASE64_ERR_BAD_ENC_SIZE         = -3,
 
     /* the padding of the encoded data is invalid. */
-    BASE64_ERR_INVALID_ENC_PADDING  = -4,
+    BASE64_ERR_BAD_ENC_PADDING      = -4,
 } base64_err_t;
 
 uint32_t base64_error_param(void);

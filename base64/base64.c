@@ -292,7 +292,7 @@ static int validate_encoded_data(const void *data, int size, int base64_type)
 
     if (size % 4 != 0)
     {
-        return BASE64_ERR_INVALID_ENC_LEN;
+        return BASE64_ERR_BAD_ENC_SIZE;
     }
 
     num_flipping = 0;
@@ -314,11 +314,11 @@ static int validate_encoded_data(const void *data, int size, int base64_type)
         error_param = 0;
         if (IS_BASE64_PADDING_DIGIT(*data_offs))
         {
-            return BASE64_ERR_INVALID_ENC_PADDING;
+            return BASE64_ERR_BAD_ENC_PADDING;
         }
         else
         {
-            return BASE64_ERR_INVALID_ENC_CHAR;
+            return BASE64_ERR_BAD_ENC_CHAR;
         }
     }
 
@@ -355,7 +355,7 @@ static int validate_encoded_data(const void *data, int size, int base64_type)
             else
             {
                 error_param = data_offs - (char *)data;
-                return BASE64_ERR_INVALID_ENC_CHAR;
+                return BASE64_ERR_BAD_ENC_CHAR;
             }
 
             data_offs++;
@@ -391,7 +391,7 @@ static int validate_encoded_data(const void *data, int size, int base64_type)
             else
             {
                 error_param = data_offs - (char *)data;
-                return BASE64_ERR_INVALID_ENC_CHAR;
+                return BASE64_ERR_BAD_ENC_CHAR;
             }
 
             data_offs++;
@@ -402,13 +402,13 @@ static int validate_encoded_data(const void *data, int size, int base64_type)
     if (num_flipping > 1)
     {
         error_param = first_padding_idx;
-        return BASE64_ERR_INVALID_ENC_PADDING;
+        return BASE64_ERR_BAD_ENC_PADDING;
     }
 
     if (num_padding > 2)
     {
         error_param = data_offs - (char *)data - num_padding;
-        return BASE64_ERR_INVALID_ENC_PADDING;
+        return BASE64_ERR_BAD_ENC_PADDING;
     }
 
     error_param = num_padding;
