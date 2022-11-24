@@ -1,3 +1,35 @@
+/**
+ * BSD 3-Clause License
+ * 
+ * Copyright (c) 2022, Alex Chen
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ * list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "stream.h"
 
 #include <stdlib.h>
@@ -251,9 +283,18 @@ int stream_read(stream_handle_t *handle, void *buff, size_t size)
     return STM_OK;
 }
 
-int stream_peek(stream_handle_t *handle, void *buff, size_t size)
+/**
+ * @brief just take a peek of the data in the stream.
+ * 
+ * @param handle  stream handle pointer.
+ * @param buff    output data pointer.
+ * @param offs    offset of the peeked data.
+ * @param size    size of the peeked data.
+*/
+int stream_peek(stream_handle_t *handle, void *buff, size_t offs, size_t size)
 {
     uint8_t *first_copy_ptr;
+    size_t circbuff_temphead;
 
     if (handle == NULL || buff == NULL)
     {
@@ -264,23 +305,25 @@ int stream_peek(stream_handle_t *handle, void *buff, size_t size)
         return STM_OK;
     }
 
-    if (STM_GET_USED(handle) < size)
+    if (STM_GET_USED(handle) < offs + size)
     {
         return STM_ERR_INSUF_DATA;
     }
 
     STM_MUTEX_LOCK(handle);
 
-    first_copy_ptr = (uint8_t *)handle->circbuff + handle->circbuff_head;
+    circbuff_temphead = (handle->circbuff_head + offs) % (handle->circbuff_cap + 1);
+
+    first_copy_ptr = (uint8_t *)handle->circbuff + circbuff_temphead;
 
     /* check if we can read it all at once */
-    if (handle->circbuff_cap + 1 - handle->circbuff_head >= size)
+    if (handle->circbuff_cap + 1 - circbuff_temphead >= size)
     {
         memcpy(buff, first_copy_ptr, size);
     }
     else
     {
-        size_t first_copy_size = handle->circbuff_cap + 1 - handle->circbuff_head;
+        size_t first_copy_size = handle->circbuff_cap + 1 - circbuff_temphead;
         size_t second_copy_size = size - first_copy_size;
 
         /* first copy */
