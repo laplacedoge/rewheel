@@ -75,6 +75,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef SSTM_PTHREAD_MUTEX_ENABLE
+    #define SSTM_MUTEX_LOCK(stream)     pthread_mutex_lock(&stream->mutex)
+    #define SSTM_MUTEX_UNLOCK(stream)   pthread_mutex_unlock(&stream->mutex)
+#else
+    #define SSTM_MUTEX_LOCK(stream)
+    #define SSTM_MUTEX_UNLOCK(stream)
+#endif
+
 /**
  * @brief load default configuration.
 */
@@ -151,6 +159,16 @@ int SeekableStream_Create(SeekableStream **stream, SeekableStreamConfig *config)
     }
     allocStream->buff = allocBuff;
 
+    /* initialize pthread mutex. */
+#ifdef SSTM_PTHREAD_MUTEX_ENABLE
+    if (pthread_mutex_init(&allocStream->mutex, NULL) != 0)
+    {
+        free(allocBuff);
+        free(allocStream);
+        return SSTM_ERR_BAD_MUTEX;
+    }
+#endif
+
     *stream = allocStream;
 
     return SSTM_OK;
@@ -167,6 +185,16 @@ int SeekableStream_Delete(SeekableStream *stream)
         return SSTM_ERR_BAD_ARG;
     }
 
+    /* deinitialize pthread mutex. */
+#ifdef SSTM_PTHREAD_MUTEX_ENABLE
+    if (pthread_mutex_destroy(&stream->mutex) != 0)
+    {
+        return SSTM_ERR_BAD_MUTEX;
+    }
+#endif
+
+    /* deallocate memory space. */
+    free(stream->buff);
     free(stream);
 
     return SSTM_OK;
@@ -182,6 +210,7 @@ int SeekableStream_Read(SeekableStream *stream, void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
     size_t headOffset;
+    int ret;
 
     if (stream == NULL || buff == NULL)
     {
@@ -192,9 +221,12 @@ int SeekableStream_Read(SeekableStream *stream, void *buff, size_t size)
         return SSTM_OK;
     }
 
+    SSTM_MUTEX_LOCK(stream);
+
     if (stream->stat.fresh < size)
     {
-        return SSTM_ERR_INSUF_DATA;
+        ret = SSTM_ERR_INSUF_DATA;
+        goto exit;
     }
 
     headOffset = (stream->head + stream->offset) % (stream->cap + 1);
@@ -221,7 +253,11 @@ int SeekableStream_Read(SeekableStream *stream, void *buff, size_t size)
     stream->stat.stale += size;
     stream->stat.fresh -= size;
 
-    return SSTM_OK;
+    ret = SSTM_OK;
+
+exit:
+    SSTM_MUTEX_UNLOCK(stream);
+    return ret;
 }
 
 /**
@@ -234,6 +270,7 @@ int SeekableStream_Peek(SeekableStream *stream, void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
     size_t headOffset;
+    int ret;
 
     if (stream == NULL || buff == NULL)
     {
@@ -244,9 +281,12 @@ int SeekableStream_Peek(SeekableStream *stream, void *buff, size_t size)
         return SSTM_OK;
     }
 
+    SSTM_MUTEX_LOCK(stream);
+
     if (stream->stat.fresh < size)
     {
-        return SSTM_ERR_INSUF_DATA;
+        ret = SSTM_ERR_INSUF_DATA;
+        goto exit;
     }
 
     headOffset = (stream->head + stream->offset) % (stream->cap + 1);
@@ -269,7 +309,11 @@ int SeekableStream_Peek(SeekableStream *stream, void *buff, size_t size)
         memcpy((uint8_t *)buff + firstCopySize, stream->buff, secondCopySize);
     }
 
-    return SSTM_OK;
+    ret = SSTM_OK;
+
+exit:
+    SSTM_MUTEX_UNLOCK(stream);
+    return ret;
 }
 
 /**
@@ -279,6 +323,8 @@ int SeekableStream_Peek(SeekableStream *stream, void *buff, size_t size)
 */
 int SeekableStream_Drop(SeekableStream *stream, size_t size)
 {
+    int ret;
+
     if (stream == NULL)
     {
         return SSTM_ERR_BAD_ARG;
@@ -288,9 +334,12 @@ int SeekableStream_Drop(SeekableStream *stream, size_t size)
         return SSTM_OK;
     }
 
+    SSTM_MUTEX_LOCK(stream);
+
     if (stream->stat.fresh < size)
     {
-        return SSTM_ERR_INSUF_DATA;
+        ret = SSTM_ERR_INSUF_DATA;
+        goto exit;
     }
 
     stream->offset += size;
@@ -298,7 +347,11 @@ int SeekableStream_Drop(SeekableStream *stream, size_t size)
     stream->stat.stale += size;
     stream->stat.fresh -= size;
 
-    return SSTM_OK;
+    ret = SSTM_OK;
+
+exit:
+    SSTM_MUTEX_UNLOCK(stream);
+    return ret;
 }
 
 /**
@@ -310,6 +363,7 @@ int SeekableStream_Drop(SeekableStream *stream, size_t size)
 int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
+    int ret;
 
     if (stream == NULL)
     {
@@ -320,9 +374,12 @@ int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
         return SSTM_OK;
     }
 
+    SSTM_MUTEX_LOCK(stream);
+
     if (stream->stat.used < size)
     {
-        return SSTM_ERR_INSUF_DATA;
+        ret = SSTM_ERR_INSUF_DATA;
+        goto exit;
     }
 
     firstCopyPtr = (uint8_t *)stream->buff + stream->head;
@@ -367,7 +424,11 @@ int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
     }
     stream->stat.fresh = stream->stat.used - stream->offset;
 
-    return SSTM_OK;
+    ret = SSTM_OK;
+
+exit:
+    SSTM_MUTEX_UNLOCK(stream);
+    return ret;
 }
 
 /**
@@ -379,6 +440,7 @@ int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
 int SeekableStream_Write(SeekableStream *stream, const void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
+    int ret;
 
     if (stream == NULL || buff == NULL)
     {
@@ -389,9 +451,12 @@ int SeekableStream_Write(SeekableStream *stream, const void *buff, size_t size)
         return SSTM_OK;
     }
 
+    SSTM_MUTEX_LOCK(stream);
+
     if (stream->stat.free < size)
     {
-        return SSTM_ERR_INSUF_SPACE;
+        ret = SSTM_ERR_INSUF_SPACE;
+        goto exit;
     }
 
     firstCopyPtr = stream->buff + stream->tail;
@@ -420,7 +485,11 @@ int SeekableStream_Write(SeekableStream *stream, const void *buff, size_t size)
     stream->stat.free = stream->stat.cap - stream->stat.used;
     stream->stat.fresh += size;
 
-    return SSTM_OK;
+    ret = SSTM_OK;
+
+exit:
+    SSTM_MUTEX_UNLOCK(stream);
+    return ret;
 }
 
 /**
@@ -432,6 +501,7 @@ int SeekableStream_Write(SeekableStream *stream, const void *buff, size_t size)
 int SeekableStream_Seek(SeekableStream *stream, int offset, int whence)
 {
     int finalOffset;
+    int ret;
 
     if (stream == NULL)
     {
@@ -441,6 +511,8 @@ int SeekableStream_Seek(SeekableStream *stream, int offset, int whence)
     {
         return SSTM_OK;
     }
+
+    SSTM_MUTEX_LOCK(stream);
 
     switch (whence)
     {
@@ -461,7 +533,8 @@ int SeekableStream_Seek(SeekableStream *stream, int offset, int whence)
     }
     if (finalOffset == stream->offset)
     {
-        return SSTM_OK;
+        ret = SSTM_OK;
+        goto exit;
     }
     if (finalOffset > stream->stat.used)
     {
@@ -469,7 +542,8 @@ int SeekableStream_Seek(SeekableStream *stream, int offset, int whence)
 
         if (size > stream->stat.free)
         {
-            return SSTM_ERR_INSUF_SPACE;
+            ret = SSTM_ERR_INSUF_SPACE;
+            goto exit;
         }
         stream->tail = (stream->tail + size) % (stream->cap + 1);
         stream->stat.used += size;
@@ -479,5 +553,9 @@ int SeekableStream_Seek(SeekableStream *stream, int offset, int whence)
     stream->stat.stale = stream->offset;
     stream->stat.fresh = stream->stat.used - stream->stat.stale;
 
-    return SSTM_OK;
+    ret = SSTM_OK;
+
+exit:
+    SSTM_MUTEX_UNLOCK(stream);
+    return ret;
 }

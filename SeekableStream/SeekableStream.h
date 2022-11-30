@@ -36,6 +36,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef SSTM_PTHREAD_MUTEX_ENABLE
+#include <pthread.h>
+#endif
+
 typedef struct SeekableStreamStatus
 {
     size_t size;    // the amount of memory space that buffer occupied.
@@ -61,6 +65,9 @@ typedef struct SeekableStream
     size_t tail;                    // stream tail index.
     SeekableStreamConfig conf;      // stream config.
     SeekableStreamStatus stat;      // stream status.
+#ifdef SSTM_PTHREAD_MUTEX_ENABLE
+    pthread_mutex_t mutex;          // pthread mutex.
+#endif
 } SeekableStream;
 
 typedef enum SeekableStreamError
@@ -72,6 +79,7 @@ typedef enum SeekableStreamError
     SSTM_ERR_BAD_CONF       = -4,   // invalid stream configuration.
     SSTM_ERR_INSUF_SPACE    = -5,   // insufficient stream space.
     SSTM_ERR_INSUF_DATA     = -6,   // insufficient stream data.
+    SSTM_ERR_BAD_MUTEX      = -7,   // problem about pthread mutex.
 } SeekableStreamError;
 
 typedef enum SeekableStreamSeek
