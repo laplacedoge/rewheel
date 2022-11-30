@@ -413,7 +413,7 @@ int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
     }
 
     stream->stat.used -= size;
-    stream->stat.free =+ size;
+    stream->stat.free += size;
     if (size <= stream->offset)
     {
         stream->offset -= size;
