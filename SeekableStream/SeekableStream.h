@@ -89,8 +89,6 @@ typedef enum SeekableStreamSeek
     SSTM_SEEK_END,          // from the end of the stream.
 } SeekableStreamSeek;
 
-#define STM_DEF_CAP 1024
-
 int SeekableStream_Create(SeekableStream **stream, SeekableStreamConfig *config);
 
 int SeekableStream_Delete(SeekableStream *stream);

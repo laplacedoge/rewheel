@@ -83,6 +83,8 @@
     #define SSTM_MUTEX_UNLOCK(stream)
 #endif
 
+#define SSTM_DEF_CAP    1024    // default capacity of stream buffer.
+
 /**
  * @brief load default configuration.
 */
@@ -93,7 +95,7 @@ static int loadDefaultConfig(SeekableStreamConfig *config)
         return SSTM_ERR_BAD_ARG;
     }
 
-    config->cap = STM_DEF_CAP;
+    config->cap = SSTM_DEF_CAP;
 
     return SSTM_OK;
 }
