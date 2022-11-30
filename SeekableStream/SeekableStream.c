@@ -30,11 +30,54 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * stream buffer structure:
+ * 
+ * ┌──────────── allocated memory for stream buffer ────────────┐
+ * │                                                            │
+ * ┌───────────────── stream buffer ─────────────────┐          │
+ * │                                                 │          │
+ * ┌──────┐ ╔═══════════════╦═══════════════╗ ┌──────┐ ┌────────┐
+ * │ free │ ║     stale     ║     fresh     ║ │ free │ │ unused │
+ * └──────┘ ╚═══════════════╩═══════════════╝ └──────┘ └────────┘
+ *          └───────────── used ────────────┘
+ * └────────────────────── cap ──────────────────────┘
+ * └─────────────────────────── size ───────────────────────────┘
+ * 
+ * the actual memory size allocated for the stream buffer must be a multiple of
+ * 8. stream buffer is a FIFO, we call the unused part "free", and the used part
+ * "used", "used" can be further divided in to "stale" and "fresh", "stale"
+ * indicate the data which has been read, and "fresh" indicate the data which
+ * hasn't been read.
+ * 
+ * SeekableStream_Write() will extend the size the "fresh" part (obviously the
+ * "used" part will be extended as well) and shrink the "free" part (the "stale"
+ * part won't be shrunk).
+ * 
+ * SeekableStream_Read() read data from the "fresh" part and then turns it into
+ * the "stale" part, so the size of the "used" part won't be affected.
+ * 
+ * SeekableStream_Peek() read data from the "fresh" part but won't affect the
+ * "stale" and "fresh" part.
+ * 
+ * SeekableStream_Drop() turns data in the "fresh" part into the "stale" part.
+ * 
+ * SeekableStream_Dump() read data from the "used" part and it will shrink the
+ * "used" part.
+ * 
+ * SeekableStream_Seek() sets the separation position between the "stale" and
+ * the "fresh" part.
+ * 
+*/
+
 #include "SeekableStream.h"
 
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief load default configuration.
+*/
 static int loadDefaultConfig(SeekableStreamConfig *config)
 {
     if (config == NULL)
@@ -47,6 +90,11 @@ static int loadDefaultConfig(SeekableStreamConfig *config)
     return SSTM_OK;
 }
 
+/**
+ * @brief create a seekable stream and initialize it.
+ * @param stream  the pointer pointing to a stream pointer.
+ * @param config  configuration pointer.
+*/
 int SeekableStream_Create(SeekableStream **stream, SeekableStreamConfig *config)
 {
     SeekableStream *allocStream;
@@ -108,6 +156,10 @@ int SeekableStream_Create(SeekableStream **stream, SeekableStreamConfig *config)
     return SSTM_OK;
 }
 
+/**
+ * @brief delete a seekable stream.
+ * @param stream  stream pointer.
+*/
 int SeekableStream_Delete(SeekableStream *stream)
 {
     if (stream == NULL)
@@ -120,6 +172,12 @@ int SeekableStream_Delete(SeekableStream *stream)
     return SSTM_OK;
 }
 
+/**
+ * @brief read data from the stream.
+ * @param stream  stream pointer.
+ * @param buff    buffer pointer.
+ * @param size    read size.
+*/
 int SeekableStream_Read(SeekableStream *stream, void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
@@ -166,6 +224,12 @@ int SeekableStream_Read(SeekableStream *stream, void *buff, size_t size)
     return SSTM_OK;
 }
 
+/**
+ * @brief peek data from the stream.
+ * @param stream  stream pointer.
+ * @param buff    buffer pointer.
+ * @param size    peek size.
+*/
 int SeekableStream_Peek(SeekableStream *stream, void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
@@ -208,6 +272,11 @@ int SeekableStream_Peek(SeekableStream *stream, void *buff, size_t size)
     return SSTM_OK;
 }
 
+/**
+ * @brief drop data from stream.
+ * @param stream  stream pointer.
+ * @param size    peek size.
+*/
 int SeekableStream_Drop(SeekableStream *stream, size_t size)
 {
     if (stream == NULL)
@@ -232,6 +301,12 @@ int SeekableStream_Drop(SeekableStream *stream, size_t size)
     return SSTM_OK;
 }
 
+/**
+ * @brief dump data from the stream.
+ * @param stream  stream pointer.
+ * @param buff    buffer pointer.
+ * @param size    dump size.
+*/
 int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
@@ -295,6 +370,12 @@ int SeekableStream_Dump(SeekableStream *stream, void *buff, size_t size)
     return SSTM_OK;
 }
 
+/**
+ * @brief write data to the stream.
+ * @param stream  stream pointer.
+ * @param buff    buffer pointer.
+ * @param size    dump size.
+*/
 int SeekableStream_Write(SeekableStream *stream, const void *buff, size_t size)
 {
     uint8_t *firstCopyPtr;
@@ -342,6 +423,12 @@ int SeekableStream_Write(SeekableStream *stream, const void *buff, size_t size)
     return SSTM_OK;
 }
 
+/**
+ * @brief reposition read offset within the stream.
+ * @param stream  stream pointer.
+ * @param offset  offset based on argument "whence".
+ * @param whence  whence.
+*/
 int SeekableStream_Seek(SeekableStream *stream, int offset, int whence)
 {
     int finalOffset;
