@@ -42,9 +42,7 @@
 
 typedef struct stream_config
 {
-    uint32_t is_circbuff_static:1;
-    uint8_t *circbuff;
-    size_t circbuff_cap;
+    size_t cap;
 } stream_config_t;
 
 typedef struct stream_status
@@ -54,52 +52,45 @@ typedef struct stream_status
     size_t used;    // the amount of already used space in the stream
 } stream_status_t;
 
-typedef struct stream_handle
+typedef struct stream
 {
-    uint8_t *circbuff;
-    size_t circbuff_size;
-    size_t circbuff_cap;
-    size_t circbuff_head;
-    size_t circbuff_tail;
-    stream_config_t conf;
+    uint8_t *buff;
+    size_t size;
+    size_t cap;
+    size_t head;
+    size_t tail;
     stream_status_t stat;
 #ifdef STM_PTHREAD_LOCK_ENABLE
     pthread_mutex_t mutex;
 #endif
-}stream_handle_t;
+} stream_t;
 
 typedef enum stream_error
 {
-    STM_OK = 0,
-    STM_ERR = -1000,
-    STM_ERR_NO_MEM,
-    STM_ERR_BAD_ARG,
-    STM_ERR_BAD_CONF,
-    STM_ERR_INSUF_SPACE,
-    STM_ERR_INSUF_DATA,
-    STM_ERR_BAD_MUTEX,
+    STM_OK                  = 0,    // all is well.
+    STM_ERR                 = -1,   // generic error type.
+    STM_ERR_NO_MEM          = -2,   // failed to allocate memory.
+    STM_ERR_BAD_ARG         = -3,   // invalid argument.
+    STM_ERR_BAD_CONF        = -4,   // invalid stream configuration.
+    STM_ERR_INSUF_SPACE     = -5,   // insufficient stream space.
+    STM_ERR_INSUF_DATA      = -6,   // insufficient stream data.
+    STM_ERR_BAD_MUTEX       = -7,   // problem about pthread mutex.
 } stream_error_t;
 
-#define STM_DEF_CIRCBUFF_CAP    1024
+int stream_create(stream_t **stream, const stream_config_t *config);
 
-#define STM_GET_USED(hd)        (hd->stat.used)
+int stream_delete(stream_t *stream);
 
-#define STM_GET_FREE(hd)        (hd->circbuff_cap - hd->stat.used)
+int stream_status(stream_t *stream, stream_status_t *status);
 
-int stream_create(stream_handle_t **handle, stream_config_t *config);
+int stream_write(stream_t *stream, const void *buff, size_t size);
 
-int stream_delete(stream_handle_t *handle);
+int stream_read(stream_t *stream, void *buff, size_t size);
 
-int stream_status(stream_handle_t *handle, stream_status_t *status);
+int stream_peek(stream_t *stream, void *buff, size_t offs, size_t size);
 
-int stream_write(stream_handle_t *handle, const void *buff, size_t size);
+int stream_drop(stream_t *stream, size_t size);
 
-int stream_read(stream_handle_t *handle, void *buff, size_t size);
-
-int stream_peek(stream_handle_t *handle, void *buff, size_t offs, size_t size);
-
-int stream_drop(stream_handle_t *handle, size_t size);
-
-int stream_discard(stream_handle_t *handle);
+int stream_discard(stream_t *stream);
 
 #endif

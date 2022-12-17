@@ -46,7 +46,7 @@ static const size_t size_alphabet_upper = sizeof(data_alphabet_upper) - 1;
 
 void test_peeking(void)
 {
-    stream_handle_t *handle = NULL;
+    stream_t *stream = NULL;
     stream_config_t config;
     uint8_t buff[128];
     size_t capacity;
@@ -56,56 +56,55 @@ void test_peeking(void)
 
     capacity = 64;
 
-    config.is_circbuff_static = 0;
-    config.circbuff_cap = capacity;
+    config.cap = capacity;
 
-    ret = stream_create(&handle, &config);
+    ret = stream_create(&stream, &config);
     assert(ret == STM_OK);
 
-    ret = stream_write(handle, data_numeric, size_numeric);
+    ret = stream_write(stream, data_numeric, size_numeric);
     assert(ret == STM_OK);
-    assert(handle->stat.used == size_numeric);
-    assert(handle->stat.free == capacity - size_numeric);
+    assert(stream->stat.used == size_numeric);
+    assert(stream->stat.free == capacity - size_numeric);
 
-    ret = stream_peek(handle, buff, 0, size_numeric);
+    ret = stream_peek(stream, buff, 0, size_numeric);
     assert(ret == STM_OK);
     assert(memcmp(buff, data_numeric, size_numeric) == 0);
 
-    ret = stream_peek(handle, buff, 1, size_numeric - 1);
+    ret = stream_peek(stream, buff, 1, size_numeric - 1);
     assert(ret == STM_OK);
     assert(memcmp(buff, data_numeric + 1, size_numeric - 1) == 0);
 
-    ret = stream_write(handle, data_alphabet_lower, size_alphabet_lower);
+    ret = stream_write(stream, data_alphabet_lower, size_alphabet_lower);
     assert(ret == STM_OK);
-    assert(handle->stat.used == size_numeric + size_alphabet_lower);
-    assert(handle->stat.free == capacity - size_numeric - size_alphabet_lower);
+    assert(stream->stat.used == size_numeric + size_alphabet_lower);
+    assert(stream->stat.free == capacity - size_numeric - size_alphabet_lower);
 
-    ret = stream_peek(handle, buff, 0, size_numeric);
+    ret = stream_peek(stream, buff, 0, size_numeric);
     assert(ret == STM_OK);
     assert(memcmp(buff, data_numeric, size_numeric) == 0);
 
-    ret = stream_peek(handle, buff, size_numeric, size_alphabet_lower);
+    ret = stream_peek(stream, buff, size_numeric, size_alphabet_lower);
     assert(ret == STM_OK);
     assert(memcmp(buff, data_alphabet_lower, size_alphabet_lower) == 0);
 
-    ret = stream_drop(handle, size_numeric);
+    ret = stream_drop(stream, size_numeric);
     assert(ret == STM_OK);
 
-    ret = stream_write(handle, data_alphabet_upper, size_alphabet_upper);
+    ret = stream_write(stream, data_alphabet_upper, size_alphabet_upper);
     assert(ret == STM_OK);
-    assert(handle->stat.used == size_alphabet_lower + size_alphabet_lower);
-    assert(handle->stat.free == capacity - size_alphabet_lower - size_alphabet_upper);
+    assert(stream->stat.used == size_alphabet_lower + size_alphabet_lower);
+    assert(stream->stat.free == capacity - size_alphabet_lower - size_alphabet_upper);
 
-    ret = stream_peek(handle, buff, size_alphabet_lower, size_alphabet_upper);
+    ret = stream_peek(stream, buff, size_alphabet_lower, size_alphabet_upper);
     assert(ret == STM_OK);
     assert(memcmp(buff, data_alphabet_upper, size_alphabet_upper) == 0);
 
-    ret = stream_discard(handle);
+    ret = stream_discard(stream);
     assert(ret == STM_OK);
-    assert(handle->stat.used == 0);
-    assert(handle->stat.free == capacity);
+    assert(stream->stat.used == 0);
+    assert(stream->stat.free == capacity);
 
-    ret = stream_delete(handle);
+    ret = stream_delete(stream);
     assert(ret == STM_OK);
 
     printf("<<< PASS\n");
