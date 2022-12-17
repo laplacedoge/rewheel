@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define KV_MAP_ARRAY_SIZE   128
+#define KV_SET_ARRAY_SIZE   128
 
 typedef uint32_t (* kv_hash_cb_t)(const char *);
 typedef void (* kv_foreach_cb_t)(void *, const char *, const char *);
@@ -51,7 +51,7 @@ typedef struct kv_set
     kv_hash_cb_t hash;
 
     /* store all the bucket chains of this set */
-    kv_bucket_t *array[KV_MAP_ARRAY_SIZE];
+    kv_bucket_t *array[KV_SET_ARRAY_SIZE];
 } kv_set_t;
 
 int kv_create(kv_set_t **set, const kv_conf_t *conf);

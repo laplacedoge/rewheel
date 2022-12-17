@@ -152,7 +152,7 @@ int kv_contain(kv_set_t *set, const char *key)
     }
 
     key_found = false;
-    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
     curt_bucket = set->array[array_index];
 
     /* seach this key on chain to check if it exists */
@@ -212,7 +212,7 @@ int kv_put(kv_set_t *set, const char *key, const char *value)
     }
 
     key_found = false;
-    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
     curt_bucket = set->array[array_index];
     bucket_next = set->array + array_index;
 
@@ -315,7 +315,7 @@ int kv_del(kv_set_t *set, const char *key)
     }
 
     key_found = false;
-    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
     curt_bucket = set->array[array_index];
     bucket_next = set->array + array_index;
 
@@ -375,7 +375,7 @@ int kv_get(kv_set_t *set, const char *key, const char **value)
     }
 
     key_found = false;
-    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
     curt_bucket = set->array[array_index];
 
     /* seach this key on chain to check if it exists */
@@ -421,7 +421,7 @@ int kv_clear(kv_set_t *set)
     }
 
     /* free every chain on the set array */
-    for (int i = 0; i < KV_MAP_ARRAY_SIZE; i++)
+    for (int i = 0; i < KV_SET_ARRAY_SIZE; i++)
     {
         if (set->array[i] != NULL)
         {
@@ -467,7 +467,7 @@ int kv_foreach(kv_set_t *set, kv_foreach_cb_t foreach_cb, void *arg)
     }
 
     /* free every chain on the set array */
-    for (int i = 0; i < KV_MAP_ARRAY_SIZE; i++)
+    for (int i = 0; i < KV_SET_ARRAY_SIZE; i++)
     {
         if (set->array[i] != NULL)
         {
