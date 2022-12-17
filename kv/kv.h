@@ -8,18 +8,19 @@
 typedef uint32_t (* kv_hash_cb_t)(const char *);
 typedef void (* kv_foreach_cb_t)(void *, const char *, const char *);
 
-typedef enum kv_res
+enum
 {
     /* boolean types */
     KV_FALSE                = 0,
     KV_TRUE                 = 1,
 
     /* error types */
-    KV_OK                   = -1,
-    KV_ERR_INVALID_PARAM    = -2,
-    KV_ERR_BAD_MEM_ALLOC    = -3,
+    KV_OK                   = 0,
+    KV_ERR_BAD_ARG          = -1,
+    KV_ERR_BAD_MEM          = -2,
+    KV_ERR_BAD_CONF         = -3,
     KV_ERR_KEY_NOT_FOUND    = -4,
-} kv_res_t;
+};
 
 typedef struct kv_bucket
 {
@@ -33,34 +34,34 @@ typedef struct kv_bucket
     struct kv_bucket *next;
 } kv_bucket_t;
 
-typedef struct kv_map
+typedef struct kv_set
 {
-    /* number of the key-value pairs in this map */
-    int size;
+    /* number of the key-value pairs in this set */
+    size_t size;
 
     /* hash callback function pointer */
     kv_hash_cb_t hash;
 
-    /* store all the bucket chains of this map */
+    /* store all the bucket chains of this set */
     kv_bucket_t *array[KV_MAP_ARRAY_SIZE];
-} kv_map_t;
+} kv_set_t;
 
-kv_res_t kv_create(kv_map_t **map, kv_hash_cb_t hash_cb);
+int kv_create(kv_set_t **set, kv_hash_cb_t hash_cb);
 
-kv_res_t kv_destroy(kv_map_t *map);
+int kv_destroy(kv_set_t *set);
 
-kv_res_t kv_contain(kv_map_t *map, const char *key);
+int kv_contain(kv_set_t *set, const char *key);
 
-kv_res_t kv_size(kv_map_t *map, int *size);
+int kv_size(kv_set_t *set, size_t *size);
 
-kv_res_t kv_put(kv_map_t *map, const char *key, const char *value);
+int kv_put(kv_set_t *set, const char *key, const char *value);
 
-kv_res_t kv_del(kv_map_t *map, const char *key);
+int kv_del(kv_set_t *set, const char *key);
 
-kv_res_t kv_get(kv_map_t *map, const char *key, const char ** value);
+int kv_get(kv_set_t *set, const char *key, const char ** value);
 
-kv_res_t kv_clear(kv_map_t *map);
+int kv_clear(kv_set_t *set);
 
-kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb, void *arg);
+int kv_foreach(kv_set_t *set, kv_foreach_cb_t foreach_cb, void *arg);
 
 #endif

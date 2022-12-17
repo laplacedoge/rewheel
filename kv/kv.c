@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "kv.h"
 
 /* default hash callback function */
@@ -21,72 +22,72 @@ static uint32_t djb2(const char *str)
 }
 
 /**
- * @brief create kv map with specified hash callback function.
+ * @brief create kv set with specified hash callback function.
  * @note  if 'hash_cb' is NULL, then this function will use default hash
- *        callback function(defined by marco DEF_HASH_CB) for this kv map.
+ *        callback function(defined by marco DEF_HASH_CB) for this kv set.
  * 
- * @param map     address of kv map pointer.
+ * @param set     address of kv set pointer.
  * @param hash_cb hash callback function pointer.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_create(kv_map_t **map, kv_hash_cb_t hash_cb)
+int kv_create(kv_set_t **set, kv_hash_cb_t hash_cb)
 {
-    kv_res_t res;
-    kv_map_t *inner_map;
+    int res;
+    kv_set_t *inner_set;
 
-    if (map == NULL)
+    if (set == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
-    /* allocate memory space for map */
-    inner_map = (kv_map_t *)malloc(sizeof(kv_map_t));
-    if (inner_map == NULL)
+    /* allocate memory space for set */
+    inner_set = (kv_set_t *)malloc(sizeof(kv_set_t));
+    if (inner_set == NULL)
     {
-        res = KV_ERR_BAD_MEM_ALLOC;
+        res = KV_ERR_BAD_MEM;
         goto exit;
     }
 
-    /* initialize map and its hash callback function */
-    memset(inner_map, 0, sizeof(kv_map_t));
+    /* initialize set and its hash callback function */
+    memset(inner_set, 0, sizeof(kv_set_t));
     if (hash_cb == NULL)
     {
-        inner_map->hash = DEF_HASH_CB;
+        inner_set->hash = DEF_HASH_CB;
     }
     else
     {
-        inner_map->hash = hash_cb;
+        inner_set->hash = hash_cb;
     }
 
-    *map = inner_map;
+    *set = inner_set;
     res = KV_OK;
 exit:
     return res;
 }
 
 /**
- * @brief destroy the kv map.
+ * @brief destroy the kv set.
  * 
- * @param map kv map pointer.
+ * @param set kv set pointer.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_destroy(kv_map_t *map)
+int kv_destroy(kv_set_t *set)
 {
-    kv_res_t res;
+    int res;
 
-    if (map == NULL)
+    if (set == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
-    res = kv_clear(map);
+    res = kv_clear(set);
     if (res != KV_OK)
     {
         goto exit;
     }
-    free(map);
+    free(set);
 
     res = KV_OK;
 exit:
@@ -94,25 +95,25 @@ exit:
 }
 
 /**
- * @brief get the number of key-value pairs in the kv map.
+ * @brief get the number of key-value pairs in the kv set.
  * @note  the value pointed by 'size' won't update if this function doesn't
  *        return KV_OK.
  * 
- * @param map   kv map pointer.
+ * @param set   kv set pointer.
  * @param size  pointer to variable for storing size.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_size(kv_map_t *map, int *size)
+int kv_size(kv_set_t *set, size_t *size)
 {
-    kv_res_t res;
+    int res;
 
-    if (map == NULL)
+    if (set == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
-    *size = map->size;
+    *size = set->size;
 
     res = KV_OK;
 exit:
@@ -120,28 +121,28 @@ exit:
 }
 
 /**
- * @brief check if key is in the kv map or not.
+ * @brief check if key is in the kv set or not.
  * 
- * @param map kv map pointer.
+ * @param set kv set pointer.
  * @param key key string pointer.
  * @return  return KV_FALSE or KV_TRUE if success, otherwise return other value.
  */
-kv_res_t kv_contain(kv_map_t *map, const char *key)
+int kv_contain(kv_set_t *set, const char *key)
 {
-    kv_res_t res;
+    int res;
     int array_index;
     kv_bucket_t *curt_bucket;
     bool key_found;
 
-    if (map == NULL || key == NULL)
+    if (set == NULL || key == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
     key_found = false;
-    array_index = map->hash(key) % KV_MAP_ARRAY_SIZE;
-    curt_bucket = map->array[array_index];
+    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    curt_bucket = set->array[array_index];
 
     /* seach this key on chain to check if it exists */
     while (curt_bucket != NULL)
@@ -171,19 +172,19 @@ exit:
 }
 
 /**
- * @brief put a key-value pair in the kv map.
+ * @brief put a key-value pair in the kv set.
  * @note  this function will replace the value corresponding to the specified
  *        key with the specified value if the specified key already exists in
- *        this kv map.
+ *        this kv set.
  * 
- * @param map   kv map pointer.
+ * @param set   kv set pointer.
  * @param key   key string pointer.
  * @param value value string pointer.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_put(kv_map_t *map, const char *key, const char *value)
+int kv_put(kv_set_t *set, const char *key, const char *value)
 {
-    kv_res_t res;
+    int res;
     int array_index;
     kv_bucket_t **bucket_next;
     kv_bucket_t *curt_bucket;
@@ -193,16 +194,16 @@ kv_res_t kv_put(kv_map_t *map, const char *key, const char *value)
     char *inner_value;
     size_t malloc_size;
 
-    if (map == NULL || key == NULL || value == NULL)
+    if (set == NULL || key == NULL || value == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
     key_found = false;
-    array_index = map->hash(key) % KV_MAP_ARRAY_SIZE;
-    curt_bucket = map->array[array_index];
-    bucket_next = map->array + array_index;
+    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    curt_bucket = set->array[array_index];
+    bucket_next = set->array + array_index;
 
     /* seach this key on chain to check if it exists */
     while (curt_bucket != NULL)
@@ -223,7 +224,7 @@ kv_res_t kv_put(kv_map_t *map, const char *key, const char *value)
         inner_value = (char *)malloc(malloc_size);
         if (inner_value == NULL)
         {
-            res = KV_ERR_BAD_MEM_ALLOC;
+            res = KV_ERR_BAD_MEM;
             goto exit;
         }
         memcpy(inner_value, value, malloc_size);
@@ -264,7 +265,7 @@ kv_res_t kv_put(kv_map_t *map, const char *key, const char *value)
         new_bucket->next = NULL;
         *bucket_next = new_bucket;
 
-        map->size++;
+        set->size++;
     }
 
     return KV_OK;
@@ -274,38 +275,38 @@ err_malloc_value:
 err_malloc_key:
     free(new_bucket);
 err_malloc_bucket:
-    res = KV_ERR_BAD_MEM_ALLOC;
+    res = KV_ERR_BAD_MEM;
 exit:
     return res;
 }
 
 /**
- * @brief delete a key-value pair in the kv map.
+ * @brief delete a key-value pair in the kv set.
  * 
- * @param map kv map pointer.
+ * @param set kv set pointer.
  * @param key key string pointer.
  * @return  return KV_OK if success, or return KV_ERR_KEY_NOT_FOUND if the 
- *          specified key isn't found in kv map, otherwise return other value.
+ *          specified key isn't found in kv set, otherwise return other value.
  */
-kv_res_t kv_del(kv_map_t *map, const char *key)
+int kv_del(kv_set_t *set, const char *key)
 {
-    kv_res_t res;
+    int res;
     int array_index;
     kv_bucket_t **bucket_next;
     kv_bucket_t *curt_bucket;
     kv_bucket_t *next_bucket;
     bool key_found;
 
-    if (map == NULL || key == NULL)
+    if (set == NULL || key == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
     key_found = false;
-    array_index = map->hash(key) % KV_MAP_ARRAY_SIZE;
-    curt_bucket = map->array[array_index];
-    bucket_next = map->array + array_index;
+    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    curt_bucket = set->array[array_index];
+    bucket_next = set->array + array_index;
 
     /* seach this key on chain to check if it exists */
     while (curt_bucket != NULL)
@@ -326,7 +327,7 @@ kv_res_t kv_del(kv_map_t *map, const char *key)
         free(curt_bucket->value);
         free(curt_bucket);
         *bucket_next = next_bucket;
-        map->size--;
+        set->size--;
     }
     else
     {
@@ -340,31 +341,31 @@ exit:
 }
 
 /**
- * @brief get the value string corresponding to the specified key in the kv map.
+ * @brief get the value string corresponding to the specified key in the kv set.
  * @note  the value pointed by 'value' won't update if this function doesn't
  *        return KV_OK.
  * 
- * @param map   kv map pointer.
+ * @param set   kv set pointer.
  * @param key   key string pointer.
  * @param value pointer to a variable for storing value string pointer.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_get(kv_map_t *map, const char *key, const char **value)
+int kv_get(kv_set_t *set, const char *key, const char **value)
 {
-    kv_res_t res;
+    int res;
     int array_index;
     kv_bucket_t *curt_bucket;
     bool key_found;
 
-    if (map == NULL || key == NULL || value == NULL)
+    if (set == NULL || key == NULL || value == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
     key_found = false;
-    array_index = map->hash(key) % KV_MAP_ARRAY_SIZE;
-    curt_bucket = map->array[array_index];
+    array_index = set->hash(key) % KV_MAP_ARRAY_SIZE;
+    curt_bucket = set->array[array_index];
 
     /* seach this key on chain to check if it exists */
     while (curt_bucket != NULL)
@@ -391,29 +392,29 @@ exit:
 }
 
 /**
- * @brief clear all key-value pairs in the kv map.
+ * @brief clear all key-value pairs in the kv set.
  * 
- * @param map kv map pointer.
+ * @param set kv set pointer.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_clear(kv_map_t *map)
+int kv_clear(kv_set_t *set)
 {
-    kv_res_t res;
+    int res;
     kv_bucket_t *curt_bucket;
     kv_bucket_t *next_bucket;
 
-    if (map == NULL)
+    if (set == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
-    /* free every chain on the map array */
+    /* free every chain on the set array */
     for (int i = 0; i < KV_MAP_ARRAY_SIZE; i++)
     {
-        if (map->array[i] != NULL)
+        if (set->array[i] != NULL)
         {
-            next_bucket = map->array[i];
+            next_bucket = set->array[i];
             do
             {
                 curt_bucket = next_bucket;
@@ -425,11 +426,11 @@ kv_res_t kv_clear(kv_map_t *map)
 
                 free(curt_bucket);
             } while (next_bucket != NULL);
-            map->array[i] = NULL;
+            set->array[i] = NULL;
         }
     }
 
-    map->size = 0;
+    set->size = 0;
 
     res = KV_OK;
 exit:
@@ -437,29 +438,29 @@ exit:
 }
 
 /**
- * @brief iterate all the key-value pairs in the kv map.
+ * @brief iterate all the key-value pairs in the kv set.
  * 
- * @param map         kv map pointer.
+ * @param set         kv set pointer.
  * @param foreach_cb  pointer to iteration callback function.
  * @return  return KV_OK if success, otherwise return other value.
  */
-kv_res_t kv_foreach(kv_map_t *map, kv_foreach_cb_t foreach_cb, void *arg)
+int kv_foreach(kv_set_t *set, kv_foreach_cb_t foreach_cb, void *arg)
 {
-    kv_res_t res;
+    int res;
     kv_bucket_t *curt_bucket;
 
-    if (map == NULL)
+    if (set == NULL)
     {
-        res = KV_ERR_INVALID_PARAM;
+        res = KV_ERR_BAD_ARG;
         goto exit;
     }
 
-    /* free every chain on the map array */
+    /* free every chain on the set array */
     for (int i = 0; i < KV_MAP_ARRAY_SIZE; i++)
     {
-        if (map->array[i] != NULL)
+        if (set->array[i] != NULL)
         {
-            curt_bucket = map->array[i];
+            curt_bucket = set->array[i];
             while (curt_bucket != NULL)
             {
                 foreach_cb(arg, curt_bucket->key, curt_bucket->value);
