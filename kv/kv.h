@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define KV_SET_ARRAY_SIZE   128
-
 typedef uint32_t (* kv_hash_cb_t)(const char *);
 typedef void (* kv_foreach_cb_t)(void *, const char *, const char *);
 
@@ -38,6 +36,7 @@ typedef struct kv_bucket
 /* structure used to configure kv set */
 typedef struct kv_conf
 {
+    size_t bucket_num;
     kv_hash_cb_t hash_cb;
 } kv_conf_t;
 
@@ -45,13 +44,16 @@ typedef struct kv_conf
 typedef struct kv_set
 {
     /* number of the key-value pairs in this set */
-    size_t size;
+    size_t pair_num;
+
+    /* number of buckets in member 'array' */
+    size_t bucket_num;
 
     /* hash callback function pointer */
     kv_hash_cb_t hash;
 
     /* store all the bucket chains of this set */
-    kv_bucket_t *array[KV_SET_ARRAY_SIZE];
+    kv_bucket_t *array[];
 } kv_set_t;
 
 int kv_create(kv_set_t **set, const kv_conf_t *conf);

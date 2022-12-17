@@ -1,12 +1,20 @@
 #include <stddef.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "kv.h"
 
+/* default size of bucket pointer array */
+#define DEF_BUCKET_NUM  128
+
+/* minimum size of bucket pointer array */
+#define MIN_BUCKET_NUM  16
+
+/* maximum size of bucket pointer array */
+#define MAX_BUCKET_NUM  1024
+
 /* default hash callback function */
-#define DEF_HASH_CB djb2
+#define DEF_HASH_CB     djb2
 
 static uint32_t djb2(const char *str)
 {
@@ -24,7 +32,8 @@ static uint32_t djb2(const char *str)
 /* default configuration */
 static const kv_conf_t def_conf =
 {
-    .hash_cb = djb2,
+    .bucket_num = DEF_BUCKET_NUM,
+    .hash_cb = DEF_HASH_CB,
 };
 
 /**
@@ -38,6 +47,7 @@ static const kv_conf_t def_conf =
  */
 int kv_create(kv_set_t **set, const kv_conf_t *conf)
 {
+    size_t array_size;
     kv_set_t *inner_set;
     const kv_conf_t *real_conf;
 
@@ -46,15 +56,7 @@ int kv_create(kv_set_t **set, const kv_conf_t *conf)
         return KV_ERR_BAD_ARG;
     }
 
-    /* allocate memory space for set */
-    inner_set = (kv_set_t *)malloc(sizeof(kv_set_t));
-    if (inner_set == NULL)
-    {
-        return KV_ERR_BAD_MEM;
-    }
-
-    /* initialize set and its hash callback function */
-    memset(inner_set, 0, sizeof(kv_set_t));
+    /* determine the size of the bucket array */
     if (conf != NULL)
     {
         real_conf = conf;
@@ -63,13 +65,29 @@ int kv_create(kv_set_t **set, const kv_conf_t *conf)
     {
         real_conf = &def_conf;
     }
-    if (real_conf->hash_cb == NULL)
+    if (MIN_BUCKET_NUM > real_conf->bucket_num || real_conf->bucket_num > MAX_BUCKET_NUM)
     {
-        inner_set->hash = DEF_HASH_CB;
+        return KV_ERR_BAD_CONF;
+    }
+    array_size = sizeof(kv_bucket_t) * real_conf->bucket_num;
+
+    /* allocate memory space for set */
+    inner_set = (kv_set_t *)malloc(sizeof(kv_set_t) + array_size);
+    if (inner_set == NULL)
+    {
+        return KV_ERR_BAD_MEM;
+    }
+
+    /* initialize set and its hash callback function */
+    memset(inner_set, 0, sizeof(kv_set_t));
+    inner_set->bucket_num = real_conf->bucket_num;
+    if (real_conf->hash_cb != NULL)
+    {
+        inner_set->hash = real_conf->hash_cb;
     }
     else
     {
-        inner_set->hash = real_conf->hash_cb;
+        inner_set->hash = DEF_HASH_CB;
     }
 
     *set = inner_set;
@@ -124,7 +142,7 @@ int kv_size(kv_set_t *set, size_t *size)
         goto exit;
     }
 
-    *size = set->size;
+    *size = set->pair_num;
 
     res = KV_OK;
 exit:
@@ -143,16 +161,15 @@ int kv_contain(kv_set_t *set, const char *key)
     int res;
     int array_index;
     kv_bucket_t *curt_bucket;
-    bool key_found;
+    int key_found;
 
     if (set == NULL || key == NULL)
     {
-        res = KV_ERR_BAD_ARG;
-        goto exit;
+        return KV_ERR_BAD_ARG;
     }
 
-    key_found = false;
-    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
+    key_found = KV_FALSE;
+    array_index = set->hash(key) % set->bucket_num;
     curt_bucket = set->array[array_index];
 
     /* seach this key on chain to check if it exists */
@@ -160,26 +177,13 @@ int kv_contain(kv_set_t *set, const char *key)
     {
         if (strcmp(key, curt_bucket->key) == 0)
         {
-            key_found = true;
+            key_found = KV_TRUE;
             break;
         }
         curt_bucket = curt_bucket->next;
     }
 
-    if (key_found)
-    {
-        res = KV_TRUE;
-        goto exit;
-    }
-    else
-    {
-        res = KV_FALSE;
-        goto exit;
-    }
-
-    res = KV_OK;
-exit:
-    return res;
+    return key_found;
 }
 
 /**
@@ -200,7 +204,7 @@ int kv_put(kv_set_t *set, const char *key, const char *value)
     kv_bucket_t **bucket_next;
     kv_bucket_t *curt_bucket;
     kv_bucket_t *new_bucket;
-    bool key_found;
+    int key_found;
     char *inner_key;
     char *inner_value;
     size_t malloc_size;
@@ -211,8 +215,8 @@ int kv_put(kv_set_t *set, const char *key, const char *value)
         goto exit;
     }
 
-    key_found = false;
-    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
+    key_found = KV_FALSE;
+    array_index = set->hash(key) % set->bucket_num;
     curt_bucket = set->array[array_index];
     bucket_next = set->array + array_index;
 
@@ -221,7 +225,7 @@ int kv_put(kv_set_t *set, const char *key, const char *value)
     {
         if (strcmp(key, curt_bucket->key) == 0)
         {
-            key_found = true;
+            key_found = KV_TRUE;
             break;
         }
         curt_bucket = curt_bucket->next;
@@ -229,7 +233,7 @@ int kv_put(kv_set_t *set, const char *key, const char *value)
     }
 
     /* modify bucket or create new bucket */
-    if (key_found)
+    if (key_found == KV_TRUE)
     {
         malloc_size = strlen(value) + 1;
         inner_value = (char *)malloc(malloc_size);
@@ -276,7 +280,7 @@ int kv_put(kv_set_t *set, const char *key, const char *value)
         new_bucket->next = NULL;
         *bucket_next = new_bucket;
 
-        set->size++;
+        set->pair_num++;
     }
 
     return KV_OK;
@@ -306,7 +310,7 @@ int kv_del(kv_set_t *set, const char *key)
     kv_bucket_t **bucket_next;
     kv_bucket_t *curt_bucket;
     kv_bucket_t *next_bucket;
-    bool key_found;
+    int key_found;
 
     if (set == NULL || key == NULL)
     {
@@ -314,8 +318,8 @@ int kv_del(kv_set_t *set, const char *key)
         goto exit;
     }
 
-    key_found = false;
-    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
+    key_found = KV_FALSE;
+    array_index = set->hash(key) % set->bucket_num;
     curt_bucket = set->array[array_index];
     bucket_next = set->array + array_index;
 
@@ -324,21 +328,21 @@ int kv_del(kv_set_t *set, const char *key)
     {
         if (strcmp(key, curt_bucket->key) == 0)
         {
-            key_found = true;
+            key_found = KV_TRUE;
             break;
         }
         curt_bucket = curt_bucket->next;
         bucket_next = &((*bucket_next)->next);
     }
 
-    if (key_found)
+    if (key_found == KV_TRUE)
     {
         next_bucket = curt_bucket->next;
         free(curt_bucket->key);
         free(curt_bucket->value);
         free(curt_bucket);
         *bucket_next = next_bucket;
-        set->size--;
+        set->pair_num--;
     }
     else
     {
@@ -366,7 +370,7 @@ int kv_get(kv_set_t *set, const char *key, const char **value)
     int res;
     int array_index;
     kv_bucket_t *curt_bucket;
-    bool key_found;
+    int key_found;
 
     if (set == NULL || key == NULL || value == NULL)
     {
@@ -374,8 +378,8 @@ int kv_get(kv_set_t *set, const char *key, const char **value)
         goto exit;
     }
 
-    key_found = false;
-    array_index = set->hash(key) % KV_SET_ARRAY_SIZE;
+    key_found = KV_FALSE;
+    array_index = set->hash(key) % set->bucket_num;
     curt_bucket = set->array[array_index];
 
     /* seach this key on chain to check if it exists */
@@ -383,13 +387,13 @@ int kv_get(kv_set_t *set, const char *key, const char **value)
     {
         if (strcmp(key, curt_bucket->key) == 0)
         {
-            key_found = true;
+            key_found = KV_TRUE;
             break;
         }
         curt_bucket = curt_bucket->next;
     }
 
-    if (!key_found)
+    if (key_found == KV_FALSE)
     {
         res = KV_ERR_KEY_NOT_FOUND;
         goto exit;
@@ -421,7 +425,7 @@ int kv_clear(kv_set_t *set)
     }
 
     /* free every chain on the set array */
-    for (int i = 0; i < KV_SET_ARRAY_SIZE; i++)
+    for (int i = 0; i < set->bucket_num; i++)
     {
         if (set->array[i] != NULL)
         {
@@ -441,7 +445,7 @@ int kv_clear(kv_set_t *set)
         }
     }
 
-    set->size = 0;
+    set->pair_num = 0;
 
     res = KV_OK;
 exit:
@@ -467,7 +471,7 @@ int kv_foreach(kv_set_t *set, kv_foreach_cb_t foreach_cb, void *arg)
     }
 
     /* free every chain on the set array */
-    for (int i = 0; i < KV_SET_ARRAY_SIZE; i++)
+    for (int i = 0; i < set->bucket_num; i++)
     {
         if (set->array[i] != NULL)
         {

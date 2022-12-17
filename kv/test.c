@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+
 #include "kv.h"
 
 const char *keys[] = 
@@ -81,6 +82,7 @@ int main(int argc, char *argv[])
     assert(res == KV_OK);
 
     conf.hash_cb = sample_hash;
+    conf.bucket_num = 32;
 
     res = kv_create(&set, &conf);
     assert(res == KV_OK);
