@@ -21,49 +21,60 @@ static uint32_t djb2(const char *str)
     return hash;
 }
 
+/* default configuration */
+static const kv_conf_t def_conf =
+{
+    .hash_cb = djb2,
+};
+
 /**
  * @brief create kv set with specified hash callback function.
- * @note  if 'hash_cb' is NULL, then this function will use default hash
+ * @note  if 'conf->hash_cb' is NULL, then this function will use default hash
  *        callback function(defined by marco DEF_HASH_CB) for this kv set.
  * 
- * @param set     address of kv set pointer.
- * @param hash_cb hash callback function pointer.
+ * @param set   address of kv set pointer.
+ * @param conf  configuration pointer.
  * @return  return KV_OK if success, otherwise return other value.
  */
-int kv_create(kv_set_t **set, kv_hash_cb_t hash_cb)
+int kv_create(kv_set_t **set, const kv_conf_t *conf)
 {
-    int res;
     kv_set_t *inner_set;
+    const kv_conf_t *real_conf;
 
     if (set == NULL)
     {
-        res = KV_ERR_BAD_ARG;
-        goto exit;
+        return KV_ERR_BAD_ARG;
     }
 
     /* allocate memory space for set */
     inner_set = (kv_set_t *)malloc(sizeof(kv_set_t));
     if (inner_set == NULL)
     {
-        res = KV_ERR_BAD_MEM;
-        goto exit;
+        return KV_ERR_BAD_MEM;
     }
 
     /* initialize set and its hash callback function */
     memset(inner_set, 0, sizeof(kv_set_t));
-    if (hash_cb == NULL)
+    if (conf != NULL)
+    {
+        real_conf = conf;
+    }
+    else
+    {
+        real_conf = &def_conf;
+    }
+    if (real_conf->hash_cb == NULL)
     {
         inner_set->hash = DEF_HASH_CB;
     }
     else
     {
-        inner_set->hash = hash_cb;
+        inner_set->hash = real_conf->hash_cb;
     }
 
     *set = inner_set;
-    res = KV_OK;
-exit:
-    return res;
+
+    return KV_OK;
 }
 
 /**

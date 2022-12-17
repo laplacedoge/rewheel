@@ -22,6 +22,7 @@ enum
     KV_ERR_KEY_NOT_FOUND    = -4,
 };
 
+/* structure used to store one key-value pair */
 typedef struct kv_bucket
 {
     /* key string(null-terminated) */
@@ -34,6 +35,13 @@ typedef struct kv_bucket
     struct kv_bucket *next;
 } kv_bucket_t;
 
+/* structure used to configure kv set */
+typedef struct kv_conf
+{
+    kv_hash_cb_t hash_cb;
+} kv_conf_t;
+
+/* key-value set structure */
 typedef struct kv_set
 {
     /* number of the key-value pairs in this set */
@@ -46,7 +54,7 @@ typedef struct kv_set
     kv_bucket_t *array[KV_MAP_ARRAY_SIZE];
 } kv_set_t;
 
-int kv_create(kv_set_t **set, kv_hash_cb_t hash_cb);
+int kv_create(kv_set_t **set, const kv_conf_t *conf);
 
 int kv_destroy(kv_set_t *set);
 

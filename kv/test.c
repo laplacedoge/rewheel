@@ -52,14 +52,37 @@ void foreach_cb(void *arg, const char *key, const char *value)
     printf("{\"%s\": \"%s\"}\n", key, value);
 }
 
+uint32_t sample_hash(const char * str) {
+    size_t len;
+    uint32_t sum;
+
+    len = strlen(str);
+    sum = 0;
+    for (size_t i = 0; i < len; i++)
+    {
+        sum += str[i];
+    }
+
+    return sum;
+}
+
 int main(int argc, char *argv[])
 {
     int res;
     kv_set_t *set;
     size_t size;
     const char *value;
+    kv_conf_t conf;
 
     res = kv_create(&set, NULL);
+    assert(res == KV_OK);
+
+    res = kv_destroy(set);
+    assert(res == KV_OK);
+
+    conf.hash_cb = sample_hash;
+
+    res = kv_create(&set, &conf);
     assert(res == KV_OK);
 
     res = kv_size(set, &size);
