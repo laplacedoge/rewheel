@@ -110,9 +110,68 @@ void test_peeking(void)
     printf("<<< PASS\n");
 }
 
+void test_reading_lines(void)
+{
+    stream_t *stream = NULL;
+    stream_config_t config;
+    char buff[32];
+    size_t size;
+    int ret;
+
+    printf("\n>>> TEST: try to read some lines\n");
+
+    config.cap = 64;
+    ret = stream_create(&stream, &config);
+    assert(ret == STM_OK);
+
+    ret = stream_write(stream, "I can't read ya\nMy sexy Mona Lisa\r\n", 35);
+    assert(ret == STM_OK);
+
+    size = 32;
+    ret = stream_readline(stream, buff, &size);
+    assert(ret == STM_OK);
+    assert(size == 16);
+    assert(memcmp(buff, "I can't read ya\n", 16) == 0);
+
+    size = 32;
+    ret = stream_readline(stream, buff, &size);
+    assert(ret == STM_OK);
+    assert(size == 19);
+    assert(memcmp(buff, "My sexy Mona Lisa\r\n", 19) == 0);
+
+    ret = stream_write(stream, "Can't tell if you gon' leave here\r\nOr if you wanna stay", 55);
+    assert(ret == STM_OK);
+
+    size = 32;
+    ret = stream_readline(stream, buff, &size);
+    assert(ret == STM_ERR_INSUF_SPACE);
+    ret = stream_drop(stream, 35);
+    assert(ret == STM_OK);
+
+    size = 32;
+    ret = stream_readline(stream, buff, &size);
+    assert(ret == STM_ERR_INSUF_DATA);
+
+    ret = stream_write(stream, "\n", 1);
+    assert(ret == STM_OK);
+
+    size = 32;
+    ret = stream_readline(stream, buff, &size);
+    assert(ret == STM_OK);
+    assert(size == 21);
+    assert(memcmp(buff, "Or if you wanna stay\n", 21) == 0);
+
+    ret = stream_delete(stream);
+    assert(ret == STM_OK);
+
+    printf("<<< PASS\n");
+}
+
 int main(int argc, char *argv[])
 {
     test_peeking();
+
+    test_reading_lines();
 
     return 0;
 }

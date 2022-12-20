@@ -72,8 +72,8 @@ typedef enum stream_error
     STM_ERR_NO_MEM          = -2,   // failed to allocate memory.
     STM_ERR_BAD_ARG         = -3,   // invalid argument.
     STM_ERR_BAD_CONF        = -4,   // invalid stream configuration.
-    STM_ERR_INSUF_SPACE     = -5,   // insufficient stream space.
-    STM_ERR_INSUF_DATA      = -6,   // insufficient stream data.
+    STM_ERR_INSUF_SPACE     = -5,   // insufficient space.
+    STM_ERR_INSUF_DATA      = -6,   // insufficient data.
     STM_ERR_BAD_MUTEX       = -7,   // problem about pthread mutex.
 } stream_error_t;
 
@@ -86,6 +86,8 @@ int stream_status(stream_t *stream, stream_status_t *status);
 int stream_write(stream_t *stream, const void *buff, size_t size);
 
 int stream_read(stream_t *stream, void *buff, size_t size);
+
+int stream_readline(stream_t *stream, void *buff, size_t *size);
 
 int stream_peek(stream_t *stream, void *buff, size_t offs, size_t size);
 

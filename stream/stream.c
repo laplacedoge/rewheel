@@ -257,6 +257,136 @@ int stream_read(stream_t *stream, void *buff, size_t size)
 }
 
 /**
+ * @brief read a line from stream.
+ * @param stream  stream pointer.
+ * @param buff    buffer pointer.
+ * @param size    a pointer, use buffer size as input and line size as output.
+*/
+int stream_readline(stream_t *stream, void *buff, size_t *size)
+{
+    // uint8_t *first_copy_ptr;
+
+    if (stream == NULL || buff == NULL || size == NULL)
+    {
+        return STM_ERR_BAD_ARG;
+    }
+    if (*size == 0)
+    {
+        return STM_ERR_INSUF_SPACE;
+    }
+
+    STM_MUTEX_LOCK(stream);
+
+    if (stream->head == stream->tail)
+    {
+        return STM_ERR_INSUF_DATA;
+    }
+
+    /* determine if we can scan '\n' character all at once */
+    if (stream->head < stream->tail)
+    {
+        for (size_t i = stream->head; i < stream->tail; i++)
+        {
+            if (stream->buff[i] == '\n')
+            {
+                size_t line_size;
+
+                line_size = i + 1 - stream->head;
+                if (line_size > *size)
+                {
+                    return STM_ERR_INSUF_SPACE;
+                }
+                memcpy(buff, stream->buff + stream->head, line_size);
+
+                stream->head += line_size;
+                stream->stat.free += line_size;
+                stream->stat.used -= line_size;
+
+                *size = line_size;
+
+                return STM_OK;
+            }
+        }
+
+        return STM_ERR_INSUF_DATA;
+    }
+    else
+    {
+        /**
+         * current stream buffer structure:
+         * 
+         * ┌────────────────────── stream buffer ───────────────────────┐
+         * ╔══════════╗ ┌────────────────────────┐ ╔════════════════════╗
+         * ║   used   ║ │          free          │ ║        used        ║
+         * ╚══════════╝ └────────────────────────┘ ╚════════════════════╝
+         *              └─── tail                  └─── head
+         * └── alpha ─┘                            └─────── beta ───────┘
+         */
+
+        size_t alpha_size;
+        size_t beta_size;
+
+        /* scan '\n' character in the alpha area */
+        for (size_t i = stream->head; i < stream->cap + 1; i++)
+        {
+            if (stream->buff[i] == '\n')
+            {
+                size_t line_size;
+
+                line_size = i + 1 - stream->head;
+                if (line_size > *size)
+                {
+                    return STM_ERR_INSUF_SPACE;
+                }
+                memcpy(buff, stream->buff + stream->head, line_size);
+
+                stream->head = (stream->head + line_size) % (stream->cap + 1);
+                stream->stat.free += line_size;
+                stream->stat.used -= line_size;
+
+                *size = line_size;
+
+                return STM_OK;
+            }
+        }
+
+        alpha_size = stream->cap + 1 - stream->head;
+
+        /* scan '\n' character in the beta area */
+        for (size_t i = 0; i < stream->tail; i++)
+        {
+            if (stream->buff[i] == '\n')
+            {
+                size_t line_size;
+
+                beta_size = i + 1;
+                line_size = alpha_size + beta_size;
+                if (line_size > *size)
+                {
+                    return STM_ERR_INSUF_SPACE;
+                }
+                memcpy(buff, stream->buff + stream->head, alpha_size);
+                memcpy((uint8_t *)buff + alpha_size, stream->buff, beta_size);
+
+                stream->head = (stream->head + line_size) % (stream->cap + 1);
+                stream->stat.free += line_size;
+                stream->stat.used -= line_size;
+
+                *size = line_size;
+
+                return STM_OK;
+            }
+        }
+
+        return STM_ERR_INSUF_DATA;
+    }
+
+    STM_MUTEX_UNLOCK(stream);
+
+    return STM_OK;
+}
+
+/**
  * @brief just take a peek of the data in the stream.
  * 
  * @param stream  stream stream pointer.
